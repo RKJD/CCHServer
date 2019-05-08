@@ -19,7 +19,7 @@ public class Main {
 
             while (true) {
                 Socket sk = ssk.accept();
-                Servidor ser = new Servidor(sk);
+                Cliente ser = new Cliente(sk);
                 ser.start();
             }
 
@@ -28,16 +28,26 @@ public class Main {
         }
     }
 
-    static class Servidor extends Thread {
+    static class Cliente extends Thread {
 
         Socket sk;
+        DataInputStream dis;
+        DataOutputStream dos;
+        String name;
 
-        Servidor(Socket sk) {
+        Cliente(Socket sk) throws IOException {
             this.sk = sk;
+            this.dis = new DataInputStream(sk.getInputStream());
+            this.dos = new DataOutputStream(sk.getOutputStream());
         }
 
         @Override
         public void run() {
+            try {
+                name = dis.readUTF();
+            } catch (IOException ex) {
+                Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
+            }
 
         }
     }
