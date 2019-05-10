@@ -1,7 +1,7 @@
-package com.xocundevs.cchmavenserver;
+package com.xokundevs.cchmavenserver;
 
-import com.xokundevs.cchmavenserver.bddconnectivity.model.Usuario;
 import com.xokundevs.cchmavenserver.bddconnectivity.dao.UsuarioDao;
+import com.xokundevs.cchmavenserver.bddconnectivity.model.Usuario;
 import com.xokundevs.cchmavenserver.bddconnectivity.util.HibernateUtil;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -11,7 +11,6 @@ import java.net.Socket;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import org.hibernate.Hibernate;
 
 public class Main {
 
@@ -29,31 +28,43 @@ public class Main {
             }
         }
         HibernateUtil.getSessionFactory().close();
-        /*try {
+        /*
+        try {
             ServerSocket ssk = new ServerSocket(puerto);
             System.out.println("Escuchando");
 
             while (true) {
                 Socket sk = ssk.accept();
-                Servidor ser = new Servidor(sk);
+                Cliente ser = new Cliente(sk);
                 ser.start();
             }
 
         } catch (IOException ex) {
             System.out.println(ex);
-        }*/
+        }
+*/
     }
 
-    static class Servidor extends Thread {
+    static class Cliente extends Thread {
 
         Socket sk;
+        DataInputStream dis;
+        DataOutputStream dos;
+        String name;
 
-        Servidor(Socket sk) {
+        Cliente(Socket sk) throws IOException {
             this.sk = sk;
+            this.dis = new DataInputStream(sk.getInputStream());
+            this.dos = new DataOutputStream(sk.getOutputStream());
         }
 
         @Override
         public void run() {
+            try {
+                name = dis.readUTF();
+            } catch (IOException ex) {
+                Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
+            }
 
         }
     }
