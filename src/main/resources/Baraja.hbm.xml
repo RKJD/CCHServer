@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN" "http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
+<!-- Generated 10-may-2019 17:18:02 by Hibernate Tools 4.3.1 -->
+<hibernate-mapping>
+  <class catalog="cardshumanity" name="com.xokundevs.cchmavenserver.bddconnectivity.model.Baraja" optimistic-lock="version" table="baraja">
+    <composite-id class="com.xokundevs.cchmavenserver.bddconnectivity.model.BarajaId" name="id">
+      <key-property name="emailUsuario" type="string">
+        <column length="30" name="emailUsuario"/>
+      </key-property>
+      <key-property name="nombreBaraja" type="string">
+        <column length="30" name="nombreBaraja"/>
+      </key-property>
+    </composite-id>
+    <many-to-one class="com.xokundevs.cchmavenserver.bddconnectivity.model.Usuario" fetch="select" insert="false" name="usuario" update="false">
+      <column length="30" name="emailUsuario" not-null="true"/>
+    </many-to-one>
+    <property name="idioma" type="string">
+      <column length="10" name="idioma"/>
+    </property>
+    <set fetch="select" inverse="true" lazy="true" name="cartas" table="carta">
+      <key>
+        <column length="30" name="emailUsuario" not-null="true"/>
+        <column length="30" name="nombreBaraja" not-null="true"/>
+      </key>
+      <one-to-many class="com.xokundevs.cchmavenserver.bddconnectivity.model.Carta"/>
+    </set>
+  </class>
+</hibernate-mapping>
