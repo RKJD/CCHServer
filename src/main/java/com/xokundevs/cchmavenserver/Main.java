@@ -17,7 +17,7 @@ public class Main {
     private static final int puerto = 55555;
 
     public static void main(String[] args) {
-        HibernateUtil.getSessionFactory();
+       /* HibernateUtil.getSessionFactory();
         List<Usuario> users = UsuarioDao.getInstance().getUsuarios();
         if(users.isEmpty()){
             System.out.println("\tEsta vacia");
@@ -27,8 +27,8 @@ public class Main {
                 System.out.println("\t>> "+user.getEmailUsuario());
             }
         }
-        HibernateUtil.getSessionFactory().close();
-        /*
+        HibernateUtil.getSessionFactory().close();*/
+        
         try {
             ServerSocket ssk = new ServerSocket(puerto);
             System.out.println("Escuchando");
@@ -42,7 +42,7 @@ public class Main {
         } catch (IOException ex) {
             System.out.println(ex);
         }
-*/
+
     }
 
     static class Cliente extends Thread {
@@ -62,6 +62,7 @@ public class Main {
         public void run() {
             try {
                 name = dis.readUTF();
+                System.out.println(name);
             } catch (IOException ex) {
                 Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
             }
