@@ -72,11 +72,14 @@ public class Cliente extends Thread {
     private static final int OK = 1;
     private static final int LOGIN = 102;
     private static final int CREATE_USER = 101;
+    private static final int ERASE_USER = 103;
     
     //ERRORES
     private static final int CREATE_USER_ERROR_EXISTING_USER = -1;
     private static final int CREATE_USER_ERROR_INVALID_EMAIL = -2;
     private static final int CREATE_USER_ERROR_INVALID_PARAMETERS = -3;
+    private static final int ERASE_USER_ERROR_INVALID_PASSWORD = -4;
+    private static final int ERASE_USER_ERROR_NON_EXISTANT_USER = -5;
     
     
     private Socket sk;
@@ -96,6 +99,9 @@ public class Cliente extends Thread {
                 RegistrarUsuario();
             } else if (code == LOGIN) {
                 LoginUsuario();
+            }
+            else if(code == ERASE_USER){
+                EraseUsuario();
             }
         } catch (IOException | NoSuchAlgorithmException
                 | NoSuchPaddingException ex) {
@@ -291,6 +297,35 @@ public class Cliente extends Thread {
             );
             
             iControl.getDos().writeUTF(wins);
+        }
+    }
+    
+    public void EraseUsuario() throws IOException, NoSuchAlgorithmException, NoSuchPaddingException{
+        SecretKey secretKey = iControl.sendPublicKeyAndRecieveAES();
+        
+        String password = Parser.toHex(
+                EncoderHandler.encodeSimetricEncode(Parser.fromHex(iControl.getDis().readUTF()), secretKey, false)
+        );
+        
+        String email = new String(EncoderHandler.encodeSimetricEncode(Parser.fromHex(iControl.getDis().readUTF()), secretKey, false));
+        
+        Usuario user = new Usuario();
+        user.setEmailUsuario(email);
+        UsuarioDao uDao = UsuarioDao.getInstance();
+        if(uDao.exists(user)){
+            user = uDao.getUsuario(email);
+            if(password.equals(user.getContrasenya())){
+                uDao.deleteUsuario(user);
+                iControl.getDos().writeInt(OK);
+            }
+            else{
+                iControl.getDos().writeInt(NO);
+                iControl.getDos().writeInt(ERASE_USER_ERROR_INVALID_PASSWORD);
+            }
+        }
+        else{
+            iControl.getDos().writeInt(NO);
+            iControl.getDos().writeInt(ERASE_USER_ERROR_NON_EXISTANT_USER);
         }
     }
 }
