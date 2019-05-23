@@ -101,7 +101,7 @@ public class Parser {
     public static String parseLongToHex(long number) {
         ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
         buffer.putLong(number);
-        return Parser.toHex(buffer.array());
+        return toHex(buffer.array());
     }
 
     public static long parseHexToLong(String hex) {
@@ -110,5 +110,19 @@ public class Parser {
         buffer.put(array);
         buffer.flip();
         return buffer.getLong();
+    }
+    
+    public static String parseIntToHex(int number){
+        ByteBuffer buffer = ByteBuffer.allocate(Integer.BYTES);
+        buffer.putInt(number);
+        return toHex(buffer.array());
+    }
+    
+    public static int parseHexToInt(String hex){
+        byte[] array = fromHex(hex);
+        ByteBuffer buffer = ByteBuffer.allocate(Integer.BYTES);
+        buffer.put(array);
+        buffer.flip();
+        return buffer.getInt();
     }
 }

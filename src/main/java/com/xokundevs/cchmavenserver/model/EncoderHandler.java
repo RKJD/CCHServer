@@ -6,7 +6,6 @@
 package com.xokundevs.cchmavenserver.model;
 
 import com.xokundevs.cchmavenserver.Main;
-import static com.xokundevs.cchmavenserver.model.Cliente.SYMMETRIC_CIPHER_FORMAT;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;

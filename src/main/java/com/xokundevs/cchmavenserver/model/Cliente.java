@@ -48,10 +48,6 @@ public class Cliente extends Thread {
             Properties properties = new Properties();
             properties.load(is);
 
-            asymmetric_algorithm = properties.getProperty("asymmetric_algorithm");
-            asymmetric_cipher_format = properties.getProperty("asymmetric_cipher_format");
-            symmetric_algorithm = properties.getProperty("symmetric_algorithm");
-            symmetric_cipher_format = properties.getProperty("symmetric_cipher_format");
             root_directory_image = properties.getProperty("root_directory_image");
 
         } catch (FileNotFoundException ex) {
@@ -59,34 +55,30 @@ public class Cliente extends Thread {
         } catch (IOException ex) {
             throw new RuntimeException("Unable to read Server.properties");
         }
-        if (asymmetric_algorithm == null || asymmetric_cipher_format == null || symmetric_algorithm == null
-                || symmetric_cipher_format == null || root_directory_image == null) {
+        if (root_directory_image == null) {
             throw new NullPointerException("null or non existant properties");
         } else {
-            ASYMMETRIC_ALGORITHM = asymmetric_algorithm;
-            ASYMMETRIC_CIPHER_FORMAT = asymmetric_cipher_format;
-            SYMMETRIC_ALGORITHM = symmetric_algorithm;
-            SYMMETRIC_CIPHER_FORMAT = symmetric_cipher_format;
             ROOT_IMAGE = root_directory_image;
         }
     }
 
 //ENCODING VARIABLES
-    public static final String ASYMMETRIC_ALGORITHM;
-    public static final String ASYMMETRIC_CIPHER_FORMAT;
-    public static final String SYMMETRIC_ALGORITHM;
-    public static final String SYMMETRIC_CIPHER_FORMAT;
 
     //ROOT IMAGE DIRECTORY
     private static final String ROOT_IMAGE;
+    
     //ORDENES
     private static final int NO = -1;
     private static final int OK = 1;
     private static final int LOGIN = 102;
     private static final int CREATE_USER = 101;
+    
+    //ERRORES
     private static final int CREATE_USER_ERROR_EXISTING_USER = -1;
     private static final int CREATE_USER_ERROR_INVALID_EMAIL = -2;
     private static final int CREATE_USER_ERROR_INVALID_PARAMETERS = -3;
+    
+    
     private Socket sk;
     private InternetControl iControl;
 
@@ -291,6 +283,14 @@ public class Cliente extends Thread {
                         )
                 );
             }
+            
+            String wins = Parser.toHex(
+                    EncoderHandler.encodeSimetricEncode(
+                            Parser.fromHex(Parser.parseIntToHex(user.getPartidasGanadas())), scrKey, continuar
+                    )
+            );
+            
+            iControl.getDos().writeUTF(wins);
         }
     }
 }
