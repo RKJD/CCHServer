@@ -36,8 +36,8 @@ public class BarajaDao {
         List list = null;
         try {
             Session s = HibernateUtil.getSessionFactory().openSession();
-            Query q = s.createQuery("from Baraja b where b.id.emailUsuario = ?");
-            q.setString(0, correo);
+            Query q = s.createQuery("from Baraja b where b.id.emailUsuario = :correo");
+            q.setString("correo", correo);
             list = q.list();
             s.close();
         } catch (Exception e) {
@@ -50,9 +50,9 @@ public class BarajaDao {
         Baraja baraja = null;
         try {
             Session session = HibernateUtil.getSessionFactory().openSession();
-            Query q = session.createQuery("from Baraja baraja where baraja.id.emailUsuario = ? and baraja.id.nombreBaraja = ?");
-            q.setString(0, correo);
-            q.setString(1, nombreBaraja);
+            Query q = session.createQuery("from Baraja baraja where baraja.id.emailUsuario = :correo and baraja.id.nombreBaraja = :nombreBaraja");
+            q.setString("correo" , correo);
+            q.setString("nombreBaraja", nombreBaraja);
             List<Baraja> list = q.list();
             baraja = (list.isEmpty()) ? null : list.get(0);
             session.close();
@@ -112,9 +112,9 @@ public class BarajaDao {
         Baraja baraja = null;
         try {
             Session session = HibernateUtil.getSessionFactory().openSession();
-            Query q = session.createQuery("from Baraja baraja where baraja.id.emailUsuario = ? and baraja.id.nombreBaraja = ?");
-            q.setString(0, correo);
-            q.setString(1, nombreBaraja);
+            Query q = session.createQuery("from Baraja baraja where baraja.id.emailUsuario = :correo and baraja.id.nombreBaraja = :nombreBaraja");
+            q.setString("correo", correo);
+            q.setString("nombreBaraja", nombreBaraja);
             List<Baraja> list = q.list();
             baraja = (list.isEmpty()) ? null : list.get(0);
             if (baraja != null) {
