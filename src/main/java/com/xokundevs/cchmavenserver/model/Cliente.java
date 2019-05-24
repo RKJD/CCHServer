@@ -6,7 +6,9 @@
 package com.xokundevs.cchmavenserver.model;
 
 import com.xokundevs.cchmavenserver.Main;
+import com.xokundevs.cchmavenserver.bddconnectivity.dao.BarajaDao;
 import com.xokundevs.cchmavenserver.bddconnectivity.dao.UsuarioDao;
+import com.xokundevs.cchmavenserver.bddconnectivity.model.Baraja;
 import com.xokundevs.cchmavenserver.bddconnectivity.model.Usuario;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -21,6 +23,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
+import java.util.List;
 import java.util.Properties;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -63,25 +66,25 @@ public class Cliente extends Thread {
     }
 
 //ENCODING VARIABLES
-
     //ROOT IMAGE DIRECTORY
     private static final String ROOT_IMAGE;
-    
+
     //ORDENES
     private static final int NO = -1;
     private static final int OK = 1;
     private static final int LOGIN = 102;
     private static final int CREATE_USER = 101;
     private static final int ERASE_USER = 103;
-    
+    private static final int GET_BASIC_INFO_BARAJA = 104;
+
     //ERRORES
     private static final int CREATE_USER_ERROR_EXISTING_USER = -1;
     private static final int CREATE_USER_ERROR_INVALID_EMAIL = -2;
     private static final int CREATE_USER_ERROR_INVALID_PARAMETERS = -3;
-    private static final int ERASE_USER_ERROR_INVALID_PASSWORD = -4;
-    private static final int ERASE_USER_ERROR_NON_EXISTANT_USER = -5;
+    private static final int USER_ERROR_INVALID_PASSWORD = -4;
+    private static final int USER_ERROR_NON_EXISTANT_USER = -5;
     
-    
+
     private Socket sk;
     private InternetControl iControl;
 
@@ -95,13 +98,20 @@ public class Cliente extends Thread {
             iControl = new InternetControl(sk);
             int code = iControl.getDis().readInt();
             System.out.println(code);
-            if (code == CREATE_USER) {
-                RegistrarUsuario();
-            } else if (code == LOGIN) {
-                LoginUsuario();
-            }
-            else if(code == ERASE_USER){
-                EraseUsuario();
+            switch (code) {
+                case CREATE_USER:
+                    RegistrarUsuario();
+                    break;
+                case LOGIN:
+                    LoginUsuario();
+                    break;
+                case ERASE_USER:
+                    EraseUsuario();
+                    break;
+                case GET_BASIC_INFO_BARAJA:
+                    SendBasicBarajasInfo();
+                default:
+                    break;
             }
         } catch (IOException | NoSuchAlgorithmException
                 | NoSuchPaddingException ex) {
@@ -195,7 +205,7 @@ public class Cliente extends Thread {
         } catch (NullPointerException e) {
             e.printStackTrace();
         }
-        
+
         //System.out.println(email + " " + contra + " " + name);
         Usuario user = new Usuario(email);
         user.setContrasenya(contra);
@@ -266,12 +276,12 @@ public class Cliente extends Thread {
                 if (!temp.exists()) {
                     temp.createNewFile();
                 }
-                try{
+                try {
                     EncoderHandler.encodeFileSymmetricAlgorithm(f, temp, scrKey, false, true);
-                }catch(NullPointerException e){
+                } catch (NullPointerException e) {
                     e.printStackTrace();
                 }
-                
+
                 byte[] lengthHex = Parser.fromHex(Parser.parseLongToHex(temp.length()));
                 String encodedLength = Parser.toHex(EncoderHandler.encodeSimetricEncode(lengthHex, scrKey, true));
                 System.out.println("Long encoded: " + encodedLength + "|| real length: " + temp.length());
@@ -289,43 +299,136 @@ public class Cliente extends Thread {
                         )
                 );
             }
-            
+
             String wins = Parser.toHex(
                     EncoderHandler.encodeSimetricEncode(
                             Parser.fromHex(Parser.parseIntToHex(user.getPartidasGanadas())), scrKey, continuar
                     )
             );
-            
+
             iControl.getDos().writeUTF(wins);
         }
     }
-    
-    public void EraseUsuario() throws IOException, NoSuchAlgorithmException, NoSuchPaddingException{
+
+    public void EraseUsuario() throws IOException, NoSuchAlgorithmException, NoSuchPaddingException {
         SecretKey secretKey = iControl.sendPublicKeyAndRecieveAES();
-        
+
         String password = Parser.toHex(
                 EncoderHandler.encodeSimetricEncode(Parser.fromHex(iControl.getDis().readUTF()), secretKey, false)
         );
-        
+
         String email = new String(EncoderHandler.encodeSimetricEncode(Parser.fromHex(iControl.getDis().readUTF()), secretKey, false));
-        
+
         Usuario user = new Usuario();
         user.setEmailUsuario(email);
         UsuarioDao uDao = UsuarioDao.getInstance();
-        if(uDao.exists(user)){
+        if (uDao.exists(user)) {
             user = uDao.getUsuario(email);
-            if(password.equals(user.getContrasenya())){
+            if (password.equals(user.getContrasenya())) {
+                File f = new File(user.getImagenPerfil());
                 uDao.deleteUsuario(user);
+                if (f.exists()) {
+                    f.delete();
+                }
                 iControl.getDos().writeInt(OK);
+            } else {
+                iControl.getDos().writeInt(NO);
+                iControl.getDos().writeInt(USER_ERROR_INVALID_PASSWORD);
+            }
+        } else {
+            iControl.getDos().writeInt(NO);
+            iControl.getDos().writeInt(USER_ERROR_NON_EXISTANT_USER);
+        }
+    }
+
+    public void SendBasicBarajasInfo() throws IOException, NoSuchAlgorithmException, NoSuchPaddingException {
+        SecretKey secretKey = iControl.sendPublicKeyAndRecieveAES();
+
+        String email = new String(EncoderHandler.encodeSimetricEncode(Parser.fromHex(iControl.getDis().readUTF()),
+                secretKey, false));
+
+        String password = Parser.toHex(
+                EncoderHandler.encodeSimetricEncode(Parser.fromHex(iControl.getDis().readUTF()),
+                        secretKey,
+                        true
+                )
+        );
+        
+        DataOutputStream dos = iControl.getDos();
+        Usuario user = new Usuario(email);
+        if (UsuarioDao.getInstance().exists(user) && (user = UsuarioDao.getInstance().getUsuario(email)).getContrasenya().equals(password)) {
+            
+            dos.writeInt(OK);
+
+            BarajaDao bDao = BarajaDao.getInstance();
+
+            List<Baraja> list = bDao.getBarajas(email);
+
+            list.addAll(bDao.getBarajas("default"));
+
+            String listSize = Parser.toHex(
+                    EncoderHandler.encodeSimetricEncode(
+                            Parser.fromHex(Parser.parseIntToHex(list.size())),
+                            secretKey,
+                            true
+                    )
+            );
+
+            dos.writeUTF(listSize);
+
+            for (Baraja baraja : list) {
+                String barajaNameEncoded = Parser.toHex(
+                        EncoderHandler.encodeSimetricEncode(
+                                baraja.getId().getNombreBaraja().getBytes(StandardCharsets.UTF_8),
+                                secretKey,
+                                true
+                        )
+                );
+
+                String barajaUserNameEncoded = Parser.toHex(
+                        EncoderHandler.encodeSimetricEncode(
+                                baraja.getId().getEmailUsuario().getBytes(StandardCharsets.UTF_8),
+                                 secretKey,
+                                true
+                        )
+                );
+
+                String cantidadCartas = Parser.toHex(
+                        EncoderHandler.encodeSimetricEncode(
+                                Parser.fromHex(
+                                        Parser.parseIntToHex(baraja.getCartas().size())
+                                ),
+                                secretKey,
+                                true
+                        )
+                );
+
+                String barajaIdioma = Parser.toHex(
+                        EncoderHandler.encodeSimetricEncode(
+                                baraja.getIdioma().getBytes(StandardCharsets.UTF_8),
+                                 secretKey,
+                                true
+                        )
+                );
+
+                dos.writeUTF(barajaNameEncoded);
+
+                dos.writeUTF(barajaUserNameEncoded);
+
+                dos.writeUTF(cantidadCartas);
+
+                dos.writeUTF(barajaIdioma);
+            }
+
+        } else {
+            dos.writeInt(NO);
+            if(!UsuarioDao.getInstance().exists(user)){    
+                dos.writeInt(USER_ERROR_NON_EXISTANT_USER);
             }
             else{
-                iControl.getDos().writeInt(NO);
-                iControl.getDos().writeInt(ERASE_USER_ERROR_INVALID_PASSWORD);
+                dos.writeInt(USER_ERROR_INVALID_PASSWORD);
             }
         }
-        else{
-            iControl.getDos().writeInt(NO);
-            iControl.getDos().writeInt(ERASE_USER_ERROR_NON_EXISTANT_USER);
-        }
+
     }
 }

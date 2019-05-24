@@ -49,8 +49,8 @@ public class UsuarioDao {
         Usuario user = null;
         try{
             Session session = HibernateUtil.getSessionFactory().openSession();
-            Query q = session.createQuery("from Usuario user where user.emailUsuario = ?");
-            q.setString(0, correo);
+            Query q = session.createQuery("from Usuario user where user.emailUsuario = :correo");
+            q.setString("correo", correo);
             List<Usuario> list = q.list();
             user = (list.isEmpty())? null : list.get(0);
             session.close();
@@ -110,8 +110,8 @@ public class UsuarioDao {
         Usuario user = null;
         try{
             Session session = HibernateUtil.getSessionFactory().openSession();
-            Query q = session.createQuery("from Usuario user where user.emailUsuario = ?");
-            q.setString(0, correo);
+            Query q = session.createQuery("from Usuario user where user.emailUsuario = :correo");
+            q.setString("correo", correo);
             List<Usuario> list = q.list();
             user = (list.isEmpty())? null : list.get(0);
             
@@ -133,8 +133,8 @@ public class UsuarioDao {
         boolean result = false;
         try{
             Session session = HibernateUtil.getSessionFactory().openSession();
-            Query q = session.createQuery("from Usuario user where user.emailUsuario = ?");
-            q.setString(0, user.getEmailUsuario());
+            Query q = session.createQuery("from Usuario user where user.emailUsuario = :correo");
+            q.setString("correo", user.getEmailUsuario());
             List<Usuario> list = q.list();
             result = !list.isEmpty();
             session.close();

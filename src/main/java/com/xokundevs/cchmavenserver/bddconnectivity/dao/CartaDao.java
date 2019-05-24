@@ -34,9 +34,9 @@ public class CartaDao {
         List list = null;
         try {
             Session s = HibernateUtil.getSessionFactory().openSession();
-            Query q = s.createQuery("from Carta carta where carta.id.emailUsuario = ? carta.id.nombreBaraja = ?");
-            q.setString(0, correo);
-            q.setString(1, nombreBaraja);
+            Query q = s.createQuery("from Carta carta where carta.id.emailUsuario = :correo carta.id.nombreBaraja = :nombreBaraja");
+            q.setString("correo", correo);
+            q.setString("nombreBaraja", nombreBaraja);
             list = q.list();
             s.close();
         } catch (Exception e) {
@@ -49,10 +49,10 @@ public class CartaDao {
         Baraja baraja = null;
         try {
             Session session = HibernateUtil.getSessionFactory().openSession();
-            Query q = session.createQuery("from Carta carta where baraja.id.emailUsuario = ? and baraja.id.nombreBaraja = ? and baraja.id.idCarta = ?");
-            q.setString(0, correo);
-            q.setString(1, nombreBaraja);
-            q.setInteger(2, idCarta);
+            Query q = session.createQuery("from Carta carta where baraja.id.emailUsuario = :correo and baraja.id.nombreBaraja = :nombreBaraja and baraja.id.idCarta = :idCarta");
+            q.setString("correo", correo);
+            q.setString("nombreBaraja", nombreBaraja);
+            q.setInteger("idCarta", idCarta);
             List<Baraja> list = q.list();
             baraja = (list.isEmpty()) ? null : list.get(0);
             session.close();
