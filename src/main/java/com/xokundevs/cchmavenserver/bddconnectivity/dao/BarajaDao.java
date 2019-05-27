@@ -10,6 +10,8 @@ import com.xokundevs.cchmavenserver.bddconnectivity.model.Carta;
 import com.xokundevs.cchmavenserver.bddconnectivity.util.HibernateUtil;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
+import org.hibernate.HibernateException;
 import org.hibernate.Query;
 import org.hibernate.Session;
 
@@ -33,14 +35,17 @@ public class BarajaDao {
     }
 
     public List<Baraja> getBarajas(String correo) {
-        List list = null;
+        List<Baraja> list = null;
         try {
             Session s = HibernateUtil.getSessionFactory().openSession();
             Query q = s.createQuery("from Baraja b where b.id.emailUsuario = :correo");
             q.setString("correo", correo);
             list = q.list();
+            for(Baraja b : list){
+                b.getCartas().size();
+            }
             s.close();
-        } catch (Exception e) {
+        } catch (HibernateException e) {
             e.printStackTrace();
         }
         return list;
@@ -55,8 +60,18 @@ public class BarajaDao {
             q.setString("nombreBaraja", nombreBaraja);
             List<Baraja> list = q.list();
             baraja = (list.isEmpty()) ? null : list.get(0);
+            if(baraja != null){
+                Set<Carta> cartas = baraja.getCartas();
+                cartas.forEach((c) -> {
+                    c.getTexto();
+                    if(c.getCartanegra() != null){
+                        c.getCartanegra().getNumeroEspacios();
+                    }
+                });
+            }
             session.close();
         } catch (Exception e) {
+            baraja = null;
             e.printStackTrace();
         }
 

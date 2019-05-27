@@ -41,15 +41,14 @@ Contributor(s):
 -->
 <hibernate-configuration>
   <session-factory>
-    <property name="hibernate.dialect">org.hibernate.dialect.MySQLDialect</property>
     <property name="hibernate.connection.driver_class">com.mysql.jdbc.Driver</property>
-    <property name="hibernate.connection.url">jdbc:mysql://127.0.0.1:3307/CardsHumanity?useUnicode=true&amp;useJDBCCompliantTimezoneShift=true&amp;useLegacyDatetimeCode=false&amp;serverTimezone=UTC</property>
+    <property name="hibernate.connection.url">jdbc:mysql://localhost:3306/CardsHumanity?useUnicode=true&amp;useJDBCCompliantTimezoneShift=true&amp;useLegacyDatetimeCode=false&amp;serverTimezone=UTC</property>
     <property name="hibernate.connection.username">cchAdmin</property>
     <property name="hibernate.connection.password">rbacrm90</property>
-    <mapping class="" file="" jar="" package="" resource="Cartablanca.hbm.xml"/>
-    <mapping class="" file="" jar="" package="" resource="Cartanegra.hbm.xml"/>
-    <mapping class="" file="" jar="" package="" resource="Usuario.hbm.xml"/>
-    <mapping class="" file="" jar="" package="" resource="Baraja.hbm.xml"/>
-    <mapping class="" file="" jar="" package="" resource="Carta.hbm.xml"/>
+    <mapping resource="Cartablanca.hbm.xml"/>
+    <mapping resource="Usuario.hbm.xml"/>
+    <mapping resource="Cartanegra.hbm.xml"/>
+    <mapping resource="Carta.hbm.xml"/>
+    <mapping resource="Baraja.hbm.xml"/>
   </session-factory>
 </hibernate-configuration>

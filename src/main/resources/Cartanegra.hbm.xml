@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN" "http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
-<!-- Generated 10-may-2019 17:18:02 by Hibernate Tools 4.3.1 -->
+<!-- Generated 26-may-2019 19:42:05 by Hibernate Tools 4.3.1 -->
 <hibernate-mapping>
   <class catalog="cardshumanity" name="com.xokundevs.cchmavenserver.bddconnectivity.model.Cartanegra" optimistic-lock="version" table="cartanegra">
-    <composite-id class="com.xokundevs.cchmavenserver.bddconnectivity.model.CartanegraId" name="id">
+    <composite-id class="com.xokundevs.cchmavenserver.bddconnectivity.model.CartaId" name="id">
       <key-property name="idCarta" type="int">
         <column name="idCarta"/>
       </key-property>
       <key-property name="emailUsuario" type="string">
-        <column length="30" name="emailUsuario"/>
+        <column length="50" name="emailUsuario"/>
       </key-property>
       <key-property name="nombreBaraja" type="string">
         <column length="30" name="nombreBaraja"/>

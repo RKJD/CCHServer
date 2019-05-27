@@ -9,6 +9,7 @@ import com.xokundevs.cchmavenserver.Main;
 import com.xokundevs.cchmavenserver.bddconnectivity.dao.BarajaDao;
 import com.xokundevs.cchmavenserver.bddconnectivity.dao.UsuarioDao;
 import com.xokundevs.cchmavenserver.bddconnectivity.model.Baraja;
+import com.xokundevs.cchmavenserver.bddconnectivity.model.Carta;
 import com.xokundevs.cchmavenserver.bddconnectivity.model.Usuario;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -43,9 +44,7 @@ import javax.crypto.spec.SecretKeySpec;
 public class Cliente extends Thread {
 
     static {
-        String asymmetric_algorithm = null, asymmetric_cipher_format = null,
-                symmetric_algorithm = null, symmetric_cipher_format = null,
-                root_directory_image = null;
+        String root_directory_image = null;
 
         try (InputStream is = new FileInputStream("Server.properties")) {
             Properties properties = new Properties();
@@ -76,6 +75,7 @@ public class Cliente extends Thread {
     private static final int CREATE_USER = 101;
     private static final int ERASE_USER = 103;
     private static final int GET_BASIC_INFO_BARAJA = 104;
+    private static final int GET_CARTAS_BARAJA = 105;
 
     //ERRORES
     private static final int CREATE_USER_ERROR_EXISTING_USER = -1;
@@ -83,7 +83,7 @@ public class Cliente extends Thread {
     private static final int CREATE_USER_ERROR_INVALID_PARAMETERS = -3;
     private static final int USER_ERROR_INVALID_PASSWORD = -4;
     private static final int USER_ERROR_NON_EXISTANT_USER = -5;
-    
+    private static final int BARAJA_ERROR_NON_EXISTANT_BARAJA = -6;
 
     private Socket sk;
     private InternetControl iControl;
@@ -110,7 +110,12 @@ public class Cliente extends Thread {
                     break;
                 case GET_BASIC_INFO_BARAJA:
                     SendBasicBarajasInfo();
+                    break;
+                case GET_CARTAS_BARAJA:
+                    SendCartasBaraja();
+                    break;
                 default:
+                    System.out.println("El valor " + code + " no esta definido.");
                     break;
             }
         } catch (IOException | NoSuchAlgorithmException
@@ -173,6 +178,7 @@ public class Cliente extends Thread {
             if (!f.exists()) {
                 synchronized (Cliente.class) {
                     if (!f.exists()) {
+                        System.out.println(f.getAbsolutePath());
                         f.createNewFile();
                         control = false;
                     }
@@ -350,14 +356,16 @@ public class Cliente extends Thread {
         String password = Parser.toHex(
                 EncoderHandler.encodeSimetricEncode(Parser.fromHex(iControl.getDis().readUTF()),
                         secretKey,
-                        true
+                        false
                 )
         );
-        
+
         DataOutputStream dos = iControl.getDos();
         Usuario user = new Usuario(email);
+        System.out.println("Llego -- GET_MAZOS");
         if (UsuarioDao.getInstance().exists(user) && (user = UsuarioDao.getInstance().getUsuario(email)).getContrasenya().equals(password)) {
-            
+
+            System.out.println("OK -- GET_MAZOS");
             dos.writeInt(OK);
 
             BarajaDao bDao = BarajaDao.getInstance();
@@ -376,7 +384,18 @@ public class Cliente extends Thread {
 
             dos.writeUTF(listSize);
 
+            System.out.println(list.size());
+
             for (Baraja baraja : list) {
+
+                String emailCoded = Parser.toHex(
+                        EncoderHandler.encodeSimetricEncode(
+                                baraja.getId().getEmailUsuario().getBytes(StandardCharsets.UTF_8),
+                                secretKey,
+                                true
+                        )
+                );
+
                 String barajaNameEncoded = Parser.toHex(
                         EncoderHandler.encodeSimetricEncode(
                                 baraja.getId().getNombreBaraja().getBytes(StandardCharsets.UTF_8),
@@ -388,7 +407,7 @@ public class Cliente extends Thread {
                 String barajaUserNameEncoded = Parser.toHex(
                         EncoderHandler.encodeSimetricEncode(
                                 baraja.getId().getEmailUsuario().getBytes(StandardCharsets.UTF_8),
-                                 secretKey,
+                                secretKey,
                                 true
                         )
                 );
@@ -406,10 +425,12 @@ public class Cliente extends Thread {
                 String barajaIdioma = Parser.toHex(
                         EncoderHandler.encodeSimetricEncode(
                                 baraja.getIdioma().getBytes(StandardCharsets.UTF_8),
-                                 secretKey,
+                                secretKey,
                                 true
                         )
                 );
+
+                dos.writeUTF(emailCoded);
 
                 dos.writeUTF(barajaNameEncoded);
 
@@ -421,14 +442,122 @@ public class Cliente extends Thread {
             }
 
         } else {
+
+            System.out.println("NO -- GET_MAZOS");
             dos.writeInt(NO);
-            if(!UsuarioDao.getInstance().exists(user)){    
+            if (!UsuarioDao.getInstance().exists(user)) {
+                System.out.println("User dont exists -- GET_MAZOS");
                 dos.writeInt(USER_ERROR_NON_EXISTANT_USER);
-            }
-            else{
+            } else {
+                System.out.println("Bad password -- GET_MAZOS");
+                System.out.println("Recibida: " + password + ", Guardada: " + user.getContrasenya());
                 dos.writeInt(USER_ERROR_INVALID_PASSWORD);
             }
         }
 
     }
+
+    public void SendCartasBaraja() throws IOException, NoSuchAlgorithmException, NoSuchPaddingException {
+        SecretKey secretKey = iControl.sendPublicKeyAndRecieveAES();
+
+        DataInputStream dis = iControl.getDis();
+        DataOutputStream dos = iControl.getDos();
+
+        System.out.println("Usuario");
+        String email = new String(EncoderHandler.encodeSimetricEncode(Parser.fromHex(dis.readUTF()),
+                secretKey, false));
+
+        System.out.println("Mazo");
+        String nombreMazo = new String(
+                EncoderHandler.encodeSimetricEncode(
+                        Parser.fromHex(dis.readUTF()),
+                        secretKey,
+                        false
+                )
+        );
+        BarajaDao bDao = BarajaDao.getInstance();
+        Baraja b = null;
+        Usuario user = null;
+        if ((user = UsuarioDao.getInstance().getUsuario(email)) != null) {
+            if ((b = bDao.getBarajaWithCards(user.getEmailUsuario(), nombreMazo)) != null) {
+                dos.writeInt(OK);
+
+                dos.writeUTF(
+                        Parser.toHex(
+                                EncoderHandler.encodeSimetricEncode(
+                                        Parser.fromHex(
+                                                Parser.parseIntToHex(b.getCartas().size())
+                                        ),
+                                        secretKey,
+                                        true
+                                )
+                        )
+                );
+
+                for (Carta c : b.getCartas()) {
+                    boolean isNegra = c.getCartanegra() != null && c.getCartablanca() == null;
+                    System.out.print("Es negra: " + isNegra + ", texto: " + c.getTexto()
+                            + ", codi: " + c.getId().getIdCarta());
+                    if(isNegra)
+                        System.out.print(", Espacios: " + c.getCartanegra().getNumeroEspacios());
+                    System.out.println();
+                    dos.writeUTF(
+                            Parser.toHex(
+                                    EncoderHandler.encodeSimetricEncode(
+                                            Parser.fromHex(
+                                                    Parser.parseIntToHex((isNegra) ? 1 : 0)
+                                            ),
+                                            secretKey,
+                                            true
+                                    )
+                            )
+                    );
+
+                    dos.writeUTF(
+                            Parser.toHex(
+                                    EncoderHandler.encodeSimetricEncode(
+                                            c.getTexto().getBytes(StandardCharsets.UTF_8),
+                                            secretKey,
+                                            true
+                                    )
+                            )
+                    );
+
+                    dos.writeUTF(
+                            Parser.toHex(
+                                    EncoderHandler.encodeSimetricEncode(
+                                            Parser.fromHex(
+                                                    Parser.parseIntToHex(c.getId().getIdCarta())
+                                            ),
+                                            secretKey,
+                                            true
+                                    )
+                            )
+                    );
+
+                    if (isNegra) {
+                        dos.writeUTF(
+                                Parser.toHex(
+                                        EncoderHandler.encodeSimetricEncode(
+                                                Parser.fromHex(
+                                                        Parser.parseIntToHex(c.getCartanegra().getNumeroEspacios())
+                                                ),
+                                                secretKey,
+                                                true
+                                        )
+                                )
+                        );
+                    }
+                }
+
+            } else {
+                dos.writeInt(NO);
+                dos.writeInt(BARAJA_ERROR_NON_EXISTANT_BARAJA);
+            }
+        } else {
+            dos.writeInt(NO);
+            dos.writeInt(USER_ERROR_NON_EXISTANT_USER);
+        }
+    }
+
 }

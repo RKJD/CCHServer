@@ -5,7 +5,6 @@
  */
 package com.xokundevs.cchmavenserver.bddconnectivity.util;
 
-import com.mchange.v2.log.log4j.Log4jMLog;
 import org.hibernate.cfg.AnnotationConfiguration;
 import org.hibernate.SessionFactory;
 import org.hibernate.cfg.Configuration;

@@ -1,27 +1,27 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN" "http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
-<!-- Generated 10-may-2019 17:18:02 by Hibernate Tools 4.3.1 -->
+<!-- Generated 26-may-2019 19:42:05 by Hibernate Tools 4.3.1 -->
 <hibernate-mapping>
   <class catalog="cardshumanity" name="com.xokundevs.cchmavenserver.bddconnectivity.model.Usuario" optimistic-lock="version" table="usuario">
     <id name="emailUsuario" type="string">
-      <column length="30" name="emailUsuario"/>
+      <column length="50" name="emailUsuario"/>
       <generator class="assigned"/>
     </id>
     <property name="nombreUsuario" type="string">
       <column length="15" name="nombreUsuario"/>
     </property>
     <property name="contrasenya" type="string">
-      <column length="50" name="contrasenya"/>
+      <column length="100" name="contrasenya"/>
     </property>
     <property name="partidasGanadas" type="java.lang.Integer">
       <column name="partidasGanadas"/>
     </property>
     <property name="imagenPerfil" type="string">
-      <column length="50" name="imagenPerfil"/>
+      <column length="200" name="imagenPerfil"/>
     </property>
     <set fetch="select" inverse="true" lazy="true" name="barajas" table="baraja">
       <key>
-        <column length="30" name="emailUsuario" not-null="true"/>
+        <column length="50" name="emailUsuario" not-null="true"/>
       </key>
       <one-to-many class="com.xokundevs.cchmavenserver.bddconnectivity.model.Baraja"/>
     </set>
