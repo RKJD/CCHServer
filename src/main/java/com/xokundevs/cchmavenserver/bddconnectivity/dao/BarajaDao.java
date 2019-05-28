@@ -42,6 +42,7 @@ public class BarajaDao {
             q.setString("correo", correo);
             list = q.list();
             for(Baraja b : list){
+                b.getUsuario().getNombreUsuario();
                 b.getCartas().size();
             }
             s.close();

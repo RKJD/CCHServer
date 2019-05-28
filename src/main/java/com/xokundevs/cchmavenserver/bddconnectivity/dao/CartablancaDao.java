@@ -5,10 +5,8 @@
  */
 package com.xokundevs.cchmavenserver.bddconnectivity.dao;
 
-import com.xokundevs.cchmavenserver.bddconnectivity.model.Baraja;
-import com.xokundevs.cchmavenserver.bddconnectivity.model.Carta;
+import com.xokundevs.cchmavenserver.bddconnectivity.model.Cartablanca;
 import com.xokundevs.cchmavenserver.bddconnectivity.util.HibernateUtil;
-import java.util.Iterator;
 import java.util.List;
 import org.hibernate.Query;
 import org.hibernate.Session;
@@ -17,20 +15,20 @@ import org.hibernate.Session;
  *
  * @author Antonio
  */
-public class CartaDao {
-    private static CartaDao INSTANCE;
+public class CartablancaDao {
+    private static CartablancaDao INSTANCE;
 
-    public static CartaDao getInstance() {
+    public static CartablancaDao getInstance() {
         if (INSTANCE == null) {
             synchronized (UsuarioDao.class) {
                 if (INSTANCE == null) {
-                    INSTANCE = new CartaDao();
+                    INSTANCE = new CartablancaDao();
                 }
             }
         }
         return INSTANCE;
     }
-    public List<Carta> getCartas(String correo, String nombreBaraja) {
+    public List<Cartablanca> getCartas(String correo, String nombreBaraja) {
         List list = null;
         try {
             Session s = HibernateUtil.getSessionFactory().openSession();
@@ -45,15 +43,15 @@ public class CartaDao {
         return list;
     }
 
-    public Carta getCarta(String correo, String nombreBaraja, int idCarta) {
-        Carta carta = null;
+    public Cartablanca getCarta(String correo, String nombreBaraja, int idCarta) {
+        Cartablanca carta = null;
         try {
             Session session = HibernateUtil.getSessionFactory().openSession();
             Query q = session.createQuery("from Carta carta where baraja.id.emailUsuario = :correo and baraja.id.nombreBaraja = :nombreBaraja and baraja.id.idCarta = :idCarta");
             q.setString("correo", correo);
             q.setString("nombreBaraja", nombreBaraja);
             q.setInteger("idCarta", idCarta);
-            List<Carta> list = q.list();
+            List<Cartablanca> list = q.list();
             carta = (list.isEmpty()) ? null : list.get(0);
             session.close();
         } catch (Exception e) {
@@ -63,7 +61,7 @@ public class CartaDao {
         return carta;
     }
 
-    public boolean saveCarta(Carta carta) {
+    public boolean saveCarta(Cartablanca carta) {
         boolean result = false;
         try {
             Session session = HibernateUtil.getSessionFactory().openSession();
@@ -78,7 +76,7 @@ public class CartaDao {
         return result;
     }
 
-    public boolean updateCarta(Carta carta) {
+    public boolean updateCarta(Cartablanca carta) {
         boolean result = false;
         try {
             Session session = HibernateUtil.getSessionFactory().openSession();
@@ -93,7 +91,7 @@ public class CartaDao {
         return result;
     }
 
-    public boolean deleteCarta(Carta carta) {
+    public boolean deleteCarta(Cartablanca carta) {
         boolean result = false;
         try {
             Session session = HibernateUtil.getSessionFactory().openSession();

@@ -7,9 +7,16 @@ package com.xokundevs.cchmavenserver.model;
 
 import com.xokundevs.cchmavenserver.Main;
 import com.xokundevs.cchmavenserver.bddconnectivity.dao.BarajaDao;
+import com.xokundevs.cchmavenserver.bddconnectivity.dao.CartaDao;
+import com.xokundevs.cchmavenserver.bddconnectivity.dao.CartablancaDao;
+import com.xokundevs.cchmavenserver.bddconnectivity.dao.CartanegraDao;
 import com.xokundevs.cchmavenserver.bddconnectivity.dao.UsuarioDao;
 import com.xokundevs.cchmavenserver.bddconnectivity.model.Baraja;
+import com.xokundevs.cchmavenserver.bddconnectivity.model.BarajaId;
 import com.xokundevs.cchmavenserver.bddconnectivity.model.Carta;
+import com.xokundevs.cchmavenserver.bddconnectivity.model.CartaId;
+import com.xokundevs.cchmavenserver.bddconnectivity.model.Cartablanca;
+import com.xokundevs.cchmavenserver.bddconnectivity.model.Cartanegra;
 import com.xokundevs.cchmavenserver.bddconnectivity.model.Usuario;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -24,6 +31,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 import java.util.logging.Level;
@@ -142,101 +150,92 @@ public class Cliente extends Thread {
 
     public void RegistrarUsuario() throws IOException, NoSuchAlgorithmException, NoSuchPaddingException, NoSuchPaddingException {
         SecretKey simetricKey = iControl.sendPublicKeyAndRecieveAES();
-        String email = new String(EncoderHandler.encodeSimetricEncode(Parser.fromHex(iControl.getDis().readUTF()),
-                simetricKey, false));
-        String contra = Parser.toHex(EncoderHandler.encodeSimetricEncode(Parser.fromHex(iControl.getDis().readUTF()),
-                simetricKey, false));
-        String name = new String(EncoderHandler.encodeSimetricEncode(Parser.fromHex(iControl.getDis().readUTF()),
-                simetricKey, false));
 
-        String format = new String(EncoderHandler.encodeSimetricEncode(Parser.fromHex(iControl.getDis().readUTF()),
-                simetricKey, false));
+        String email = iControl.recibirString(simetricKey);
 
-        long length = Parser.parseHexToLong(
-                Parser.toHex(
-                        EncoderHandler.encodeSimetricEncode(
-                                Parser.fromHex(iControl.getDis().readUTF()),
-                                simetricKey,
-                                false
-                        )
-                )
-        );
+        Usuario user = new Usuario(email);
+        if (checkValidEmail(email) == false) {
+            iControl.enviarInt(NO, simetricKey);
+            iControl.enviarInt(CREATE_USER_ERROR_INVALID_EMAIL, simetricKey);
+        } else if (!UsuarioDao.getInstance().exists(user)) {
+            iControl.enviarInt(OK, simetricKey);
+            String contra = iControl.recibirHex(simetricKey);
+            String name = iControl.recibirString(simetricKey);
 
-        File f = null;
-        boolean control = true;
-        int numFile = 1;
-        do {
-            StringBuilder strBuilder = new StringBuilder();
-            strBuilder.append(ROOT_IMAGE)
-                    .append("\\temp_")
-                    .append(name)
-                    .append("_")
-                    .append(numFile)
-                    .append(format);
+            String format = iControl.recibirString(simetricKey);
 
-            f = new File(strBuilder.toString());
-            if (!f.exists()) {
-                synchronized (Cliente.class) {
-                    if (!f.exists()) {
-                        System.out.println(f.getAbsolutePath());
-                        f.createNewFile();
-                        control = false;
+            long length = iControl.recibirLong(simetricKey);
+
+            System.out.println(email + " " + contra + " " + name + " " + format);
+
+            File f = null;
+            boolean control = true;
+            int numFile = 1;
+            do {
+                StringBuilder strBuilder = new StringBuilder();
+                strBuilder.append(ROOT_IMAGE)
+                        .append("\\temp_")
+                        .append(name)
+                        .append("_")
+                        .append(numFile)
+                        .append(format);
+
+                f = new File(strBuilder.toString());
+                if (!f.exists()) {
+                    synchronized (Cliente.class) {
+                        if (!f.exists()) {
+                            System.out.println(f.getAbsolutePath());
+                            f.createNewFile();
+                            control = false;
+                        }
                     }
                 }
+                if (control) {
+                    numFile++;
+                }
+            } while (control);
+
+            iControl.createFileFromInput(f, length);
+
+            File destiny;
+            StringBuilder stringBuilder = new StringBuilder();
+            stringBuilder.append(ROOT_IMAGE)
+                    .append("\\")
+                    .append(email)
+                    .append("-")
+                    .append(name)
+                    .append(format);
+            destiny = new File(stringBuilder.toString());
+            if (!destiny.exists()) {
+                destiny.createNewFile();
+            } else {
+                destiny = null;
             }
-            if (control) {
-                numFile++;
+
+            try {
+                EncoderHandler.encodeFileSymmetricAlgorithm(f, destiny, simetricKey, true, false);
+            } catch (NullPointerException e) {
+                e.printStackTrace();
             }
-        } while (control);
 
-        iControl.createFileFromInput(f, length);
-
-        File destiny;
-        StringBuilder stringBuilder = new StringBuilder();
-        stringBuilder.append(ROOT_IMAGE)
-                .append("\\")
-                .append(email)
-                .append("-")
-                .append(name)
-                .append(format);
-        destiny = new File(stringBuilder.toString());
-        if (!destiny.exists()) {
-            destiny.createNewFile();
-        } else {
-            destiny = null;
-        }
-
-        try {
-            EncoderHandler.encodeFileSymmetricAlgorithm(f, destiny, simetricKey, true, false);
-        } catch (NullPointerException e) {
-            e.printStackTrace();
-        }
-
-        //System.out.println(email + " " + contra + " " + name);
-        Usuario user = new Usuario(email);
-        user.setContrasenya(contra);
-        user.setNombreUsuario(name);
-        user.setPartidasGanadas(0);
-        if (destiny != null) {
-            user.setImagenPerfil(destiny.getAbsolutePath());
-        }
-
-        if (checkValidEmail(email) == false) {
-            iControl.getDos().writeInt(NO);
-            iControl.getDos().writeInt(CREATE_USER_ERROR_INVALID_EMAIL);
-        } else if (!UsuarioDao.getInstance().exists(user)) {
+            //System.out.println(email + " " + contra + " " + name);
+            user.setContrasenya(contra);
+            user.setNombreUsuario(name);
+            user.setPartidasGanadas(0);
+            if (destiny != null) {
+                user.setImagenPerfil(destiny.getAbsolutePath());
+            }
 
             if (UsuarioDao.getInstance().saveUsuario(user)) {
-                iControl.getDos().writeInt(OK);
                 System.out.println("OK");
             } else {
-                iControl.getDos().writeInt(NO);
-                iControl.getDos().writeInt(CREATE_USER_ERROR_INVALID_PARAMETERS);
+                iControl.enviarInt(NO, simetricKey);
+                iControl.enviarInt(CREATE_USER_ERROR_INVALID_PARAMETERS, simetricKey);
             }
         } else {
             System.out.println("NO");
-            iControl.getDos().writeInt(NO);
-            iControl.getDos().writeInt(CREATE_USER_ERROR_EXISTING_USER);
+            iControl.enviarInt(NO, simetricKey);
+            iControl.enviarInt(CREATE_USER_ERROR_EXISTING_USER, simetricKey);
         }
     }
 
@@ -244,17 +243,9 @@ public class Cliente extends Thread {
 
         SecretKey scrKey = iControl.sendPublicKeyAndRecieveAES();
 
-        String email = new String(
-                EncoderHandler.encodeSimetricEncode(
-                        Parser.fromHex(iControl.getDis().readUTF()), scrKey, false
-                )
-        );
+        String email = iControl.recibirString(scrKey);
 
-        String password = Parser.toHex(
-                EncoderHandler.encodeSimetricEncode(
-                        Parser.fromHex(iControl.getDis().readUTF()), scrKey, false
-                )
-        );
+        String password = iControl.recibirHex(scrKey);
 
         System.out.println(email + " - " + password);
         boolean continuar = false;
@@ -266,13 +257,10 @@ public class Cliente extends Thread {
             }
         }
 
-        iControl.getDos().writeInt((continuar) ? OK : NO);
+        iControl.enviarInt((continuar) ? OK : NO, scrKey);
 
         if (continuar) {
-            byte[] nombreBytes = user.getNombreUsuario().getBytes(StandardCharsets.UTF_8);
-            String nombre = Parser.toHex(EncoderHandler.encodeSimetricEncode(nombreBytes, scrKey, true));
-
-            iControl.getDos().writeUTF(nombre);
+            iControl.enviarString(user.getNombreUsuario(), scrKey);
 
             File f = new File(user.getImagenPerfil());
 
@@ -291,39 +279,23 @@ public class Cliente extends Thread {
                 byte[] lengthHex = Parser.fromHex(Parser.parseLongToHex(temp.length()));
                 String encodedLength = Parser.toHex(EncoderHandler.encodeSimetricEncode(lengthHex, scrKey, true));
                 System.out.println("Long encoded: " + encodedLength + "|| real length: " + temp.length());
-                iControl.SendFile(temp, encodedLength);
+                iControl.SendFile(temp, scrKey);
                 temp.delete();
             } else {
                 System.out.println("NO IMAGEN");
-                iControl.getDos().writeUTF(
-                        Parser.toHex(
-                                EncoderHandler.encodeSimetricEncode(
-                                        Parser.fromHex(Parser.parseLongToHex(0)),
-                                        scrKey,
-                                        continuar
-                                )
-                        )
-                );
+                iControl.enviarLong(0, scrKey);
             }
 
-            String wins = Parser.toHex(
-                    EncoderHandler.encodeSimetricEncode(
-                            Parser.fromHex(Parser.parseIntToHex(user.getPartidasGanadas())), scrKey, continuar
-                    )
-            );
-
-            iControl.getDos().writeUTF(wins);
+            iControl.enviarInt(user.getPartidasGanadas(), scrKey);
         }
     }
 
     public void EraseUsuario() throws IOException, NoSuchAlgorithmException, NoSuchPaddingException {
         SecretKey secretKey = iControl.sendPublicKeyAndRecieveAES();
 
-        String password = Parser.toHex(
-                EncoderHandler.encodeSimetricEncode(Parser.fromHex(iControl.getDis().readUTF()), secretKey, false)
-        );
+        String password = iControl.recibirHex(secretKey);
 
-        String email = new String(EncoderHandler.encodeSimetricEncode(Parser.fromHex(iControl.getDis().readUTF()), secretKey, false));
+        String email = iControl.recibirString(secretKey);
 
         Usuario user = new Usuario();
         user.setEmailUsuario(email);
@@ -336,37 +308,32 @@ public class Cliente extends Thread {
                 if (f.exists()) {
                     f.delete();
                 }
-                iControl.getDos().writeInt(OK);
+                iControl.enviarInt(OK, secretKey);
             } else {
-                iControl.getDos().writeInt(NO);
-                iControl.getDos().writeInt(USER_ERROR_INVALID_PASSWORD);
+                iControl.enviarInt(NO, secretKey);
+                iControl.enviarInt(USER_ERROR_INVALID_PASSWORD, secretKey);
             }
         } else {
-            iControl.getDos().writeInt(NO);
-            iControl.getDos().writeInt(USER_ERROR_NON_EXISTANT_USER);
+            iControl.enviarInt(NO, secretKey);
+            iControl.enviarInt(USER_ERROR_NON_EXISTANT_USER, secretKey);
         }
     }
 
     public void SendBasicBarajasInfo() throws IOException, NoSuchAlgorithmException, NoSuchPaddingException {
         SecretKey secretKey = iControl.sendPublicKeyAndRecieveAES();
 
-        String email = new String(EncoderHandler.encodeSimetricEncode(Parser.fromHex(iControl.getDis().readUTF()),
-                secretKey, false));
+        String email = iControl.recibirString(secretKey);
 
-        String password = Parser.toHex(
-                EncoderHandler.encodeSimetricEncode(Parser.fromHex(iControl.getDis().readUTF()),
-                        secretKey,
-                        false
-                )
-        );
+        String password = iControl.recibirHex(secretKey);
 
         DataOutputStream dos = iControl.getDos();
+
         Usuario user = new Usuario(email);
         System.out.println("Llego -- GET_MAZOS");
         if (UsuarioDao.getInstance().exists(user) && (user = UsuarioDao.getInstance().getUsuario(email)).getContrasenya().equals(password)) {
 
             System.out.println("OK -- GET_MAZOS");
-            dos.writeInt(OK);
+            iControl.enviarInt(OK, secretKey);
 
             BarajaDao bDao = BarajaDao.getInstance();
 
@@ -374,84 +341,34 @@ public class Cliente extends Thread {
 
             list.addAll(bDao.getBarajas("default"));
 
-            String listSize = Parser.toHex(
-                    EncoderHandler.encodeSimetricEncode(
-                            Parser.fromHex(Parser.parseIntToHex(list.size())),
-                            secretKey,
-                            true
-                    )
-            );
-
-            dos.writeUTF(listSize);
+            iControl.enviarInt(list.size(), secretKey);
 
             System.out.println(list.size());
 
             for (Baraja baraja : list) {
 
-                String emailCoded = Parser.toHex(
-                        EncoderHandler.encodeSimetricEncode(
-                                baraja.getId().getEmailUsuario().getBytes(StandardCharsets.UTF_8),
-                                secretKey,
-                                true
-                        )
-                );
+                iControl.enviarString(baraja.getId().getEmailUsuario(), secretKey);
 
-                String barajaNameEncoded = Parser.toHex(
-                        EncoderHandler.encodeSimetricEncode(
-                                baraja.getId().getNombreBaraja().getBytes(StandardCharsets.UTF_8),
-                                secretKey,
-                                true
-                        )
-                );
+                iControl.enviarString(baraja.getId().getNombreBaraja(), secretKey);
 
-                String barajaUserNameEncoded = Parser.toHex(
-                        EncoderHandler.encodeSimetricEncode(
-                                baraja.getId().getEmailUsuario().getBytes(StandardCharsets.UTF_8),
-                                secretKey,
-                                true
-                        )
-                );
+                iControl.enviarString(baraja.getUsuario().getNombreUsuario(), secretKey);
 
-                String cantidadCartas = Parser.toHex(
-                        EncoderHandler.encodeSimetricEncode(
-                                Parser.fromHex(
-                                        Parser.parseIntToHex(baraja.getCartas().size())
-                                ),
-                                secretKey,
-                                true
-                        )
-                );
+                iControl.enviarInt(baraja.getCartas().size(), secretKey);
 
-                String barajaIdioma = Parser.toHex(
-                        EncoderHandler.encodeSimetricEncode(
-                                baraja.getIdioma().getBytes(StandardCharsets.UTF_8),
-                                secretKey,
-                                true
-                        )
-                );
+                iControl.enviarString(baraja.getIdioma(), secretKey);
 
-                dos.writeUTF(emailCoded);
-
-                dos.writeUTF(barajaNameEncoded);
-
-                dos.writeUTF(barajaUserNameEncoded);
-
-                dos.writeUTF(cantidadCartas);
-
-                dos.writeUTF(barajaIdioma);
             }
 
         } else {
 
             System.out.println("NO -- GET_MAZOS");
-            dos.writeInt(NO);
+            iControl.enviarInt(NO, secretKey);
             if (!UsuarioDao.getInstance().exists(user)) {
                 System.out.println("User dont exists -- GET_MAZOS");
-                dos.writeInt(USER_ERROR_NON_EXISTANT_USER);
+                iControl.enviarInt(USER_ERROR_NON_EXISTANT_USER, secretKey);
             } else {
                 System.out.println("Bad password -- GET_MAZOS");
-                System.out.println("Recibida: " + password + ", Guardada: " + user.getContrasenya());
-                dos.writeInt(USER_ERROR_INVALID_PASSWORD);
+                iControl.enviarInt(USER_ERROR_INVALID_PASSWORD, secretKey);
             }
         }
 
@@ -460,104 +377,163 @@ public class Cliente extends Thread {
     public void SendCartasBaraja() throws IOException, NoSuchAlgorithmException, NoSuchPaddingException {
         SecretKey secretKey = iControl.sendPublicKeyAndRecieveAES();
 
-        DataInputStream dis = iControl.getDis();
-        DataOutputStream dos = iControl.getDos();
-
         System.out.println("Usuario");
-        String email = new String(EncoderHandler.encodeSimetricEncode(Parser.fromHex(dis.readUTF()),
-                secretKey, false));
+        String email = iControl.recibirString(secretKey);
 
         System.out.println("Mazo");
-        String nombreMazo = new String(
-                EncoderHandler.encodeSimetricEncode(
-                        Parser.fromHex(dis.readUTF()),
-                        secretKey,
-                        false
-                )
-        );
+        String nombreMazo = iControl.recibirString(secretKey);
+
         BarajaDao bDao = BarajaDao.getInstance();
-        Baraja b = null;
-        Usuario user = null;
+        Baraja b;
+        Usuario user;
         if ((user = UsuarioDao.getInstance().getUsuario(email)) != null) {
             if ((b = bDao.getBarajaWithCards(user.getEmailUsuario(), nombreMazo)) != null) {
-                dos.writeInt(OK);
+                iControl.enviarInt(OK, secretKey);
 
-                dos.writeUTF(
-                        Parser.toHex(
-                                EncoderHandler.encodeSimetricEncode(
-                                        Parser.fromHex(
-                                                Parser.parseIntToHex(b.getCartas().size())
-                                        ),
-                                        secretKey,
-                                        true
-                                )
-                        )
-                );
+                iControl.enviarInt(b.getCartas().size(), secretKey);
 
                 for (Carta c : b.getCartas()) {
                     boolean isNegra = c.getCartanegra() != null && c.getCartablanca() == null;
-                    System.out.print("Es negra: " + isNegra + ", texto: " + c.getTexto()
-                            + ", codi: " + c.getId().getIdCarta());
-                    if(isNegra)
-                        System.out.print(", Espacios: " + c.getCartanegra().getNumeroEspacios());
-                    System.out.println();
-                    dos.writeUTF(
-                            Parser.toHex(
-                                    EncoderHandler.encodeSimetricEncode(
-                                            Parser.fromHex(
-                                                    Parser.parseIntToHex((isNegra) ? 1 : 0)
-                                            ),
-                                            secretKey,
-                                            true
-                                    )
-                            )
-                    );
 
-                    dos.writeUTF(
-                            Parser.toHex(
-                                    EncoderHandler.encodeSimetricEncode(
-                                            c.getTexto().getBytes(StandardCharsets.UTF_8),
-                                            secretKey,
-                                            true
-                                    )
-                            )
-                    );
+                    iControl.enviarInt((isNegra) ? 1 : 0, secretKey);
 
-                    dos.writeUTF(
-                            Parser.toHex(
-                                    EncoderHandler.encodeSimetricEncode(
-                                            Parser.fromHex(
-                                                    Parser.parseIntToHex(c.getId().getIdCarta())
-                                            ),
-                                            secretKey,
-                                            true
-                                    )
-                            )
-                    );
+                    iControl.enviarString(c.getTexto(), secretKey);
+
+                    iControl.enviarInt(c.getId().getIdCarta(), secretKey);
 
                     if (isNegra) {
-                        dos.writeUTF(
-                                Parser.toHex(
-                                        EncoderHandler.encodeSimetricEncode(
-                                                Parser.fromHex(
-                                                        Parser.parseIntToHex(c.getCartanegra().getNumeroEspacios())
-                                                ),
-                                                secretKey,
-                                                true
-                                        )
-                                )
-                        );
+                        iControl.enviarInt(c.getCartanegra().getNumeroEspacios(), secretKey);
                     }
                 }
 
             } else {
-                dos.writeInt(NO);
-                dos.writeInt(BARAJA_ERROR_NON_EXISTANT_BARAJA);
+                iControl.enviarInt(NO, secretKey);
+                iControl.enviarInt(BARAJA_ERROR_NON_EXISTANT_BARAJA, secretKey);
             }
         } else {
-            dos.writeInt(NO);
-            dos.writeInt(USER_ERROR_NON_EXISTANT_USER);
+            iControl.enviarInt(NO, secretKey);
+            iControl.enviarInt(USER_ERROR_NON_EXISTANT_USER, secretKey);
         }
     }
 
+    public void RecibeBarajaNueva() throws IOException, NoSuchAlgorithmException, NoSuchPaddingException {
+        SecretKey secretKey = iControl.sendPublicKeyAndRecieveAES();
+
+        String email = iControl.recibirString(secretKey);
+        String password = iControl.recibirHex(secretKey);
+
+        Usuario user = null;
+        if ((user = UsuarioDao.getInstance().getUsuario(email)).getContrasenya().equals(password)) {
+            iControl.enviarInt(OK, secretKey);
+
+            String barajaname = iControl.recibirString(secretKey);
+
+            String idioma = iControl.recibirString(secretKey);
+            Baraja b;
+            if ((b = BarajaDao.getInstance().getBaraja(email, barajaname)) != null) {
+                BarajaId bId = b.getId();
+
+                int numeroCartas = iControl.recibirInt(secretKey);
+
+                for (int i = 0; i < numeroCartas; i++) {
+                    int isNegra = iControl.recibirInt(secretKey);
+
+                    int id = iControl.recibirInt(secretKey);
+
+                    String texto = iControl.recibirString(secretKey);
+
+                    CartaId cId = new CartaId(id, email, barajaname);
+
+                    Carta c = new Carta(cId, b);
+                    c.setTexto(texto);
+
+                    if (CartaDao.getInstance().getCarta(cId.getEmailUsuario(), cId.getNombreBaraja(), cId.getIdCarta()) != null) {
+                        CartaDao.getInstance().updateCarta(c);
+                    } else {
+                        CartaDao.getInstance().saveCarta(c);
+                    }
+                    CartaDao.getInstance().saveCarta(c);
+
+                    if (isNegra == 1) {
+                        int numEspacios = iControl.recibirInt(secretKey);
+
+                        Cartanegra cNegra = new Cartanegra(c, numEspacios);
+                        if (CartanegraDao.getInstance().getCarta(cId.getEmailUsuario(), cId.getNombreBaraja(), cId.getIdCarta()) != null) {
+                            CartanegraDao.getInstance().updateCarta(cNegra);
+                        } else {
+                            Cartablanca cBlanca = CartablancaDao.getInstance().getCarta(cId.getEmailUsuario(), cId.getNombreBaraja(), cId.getIdCarta());
+                            if (cBlanca != null) {
+                                CartablancaDao.getInstance().deleteCarta(cBlanca);
+                            }
+                            CartanegraDao.getInstance().saveCarta(cNegra);
+                        }
+                    } else {
+                        Cartablanca cBlanca = new Cartablanca(c);
+                        if (CartablancaDao.getInstance().getCarta(cId.getEmailUsuario(), cId.getNombreBaraja(), cId.getIdCarta()) != null) {
+                            CartablancaDao.getInstance().updateCarta(cBlanca);
+                        } else {
+                            Cartanegra cNegra = CartanegraDao.getInstance().getCarta(cId.getEmailUsuario(), cId.getNombreBaraja(), cId.getIdCarta());
+                            if (cNegra != null) {
+                                CartablancaDao.getInstance().deleteCarta(cBlanca);
+                            }
+                            CartanegraDao.getInstance().saveCarta(cNegra);
+                        }
+                    }
+                }
+            } else {
+                BarajaId bId = new BarajaId(email, barajaname);
+                b = new Baraja(bId, user);
+                b.setIdioma(idioma);
+            }
+        }
+    }
+
+    public void CreaPartida() throws IOException, NoSuchAlgorithmException, NoSuchPaddingException {
+        SecretKey secretKey = iControl.sendPublicKeyAndRecieveAES();
+
+        String email, contra;
+
+        email = iControl.recibirString(secretKey);
+        contra = iControl.recibirHex(secretKey);
+
+        Usuario user = null;
+        if ((user = UsuarioDao.getInstance().getUsuario(email)) != null && user.getContrasenya().equals(contra)) {
+            iControl.enviarInt(OK, secretKey);
+
+            String namePartida = iControl.recibirString(secretKey);
+            String contrasenaPartida = iControl.recibirString(secretKey);
+            
+            ArrayList<Baraja> listaBarajas = new ArrayList<>();
+            
+            int cantidadMazos = iControl.recibirInt(secretKey);
+            
+            for(int i = 0; i < cantidadMazos; i++){
+                String emailMazo, nombreMazo;
+                emailMazo = iControl.recibirString(secretKey);
+                nombreMazo = iControl.recibirString(secretKey);
+                
+                Baraja b = BarajaDao.getInstance().getBaraja(emailMazo, nombreMazo);
+                if(b != null){
+                    listaBarajas.add(b);
+                    iControl.enviarInt(OK, secretKey);
+                }
+                else{
+                    iControl.enviarInt(NO, secretKey);
+                    iControl.enviarInt(BARAJA_ERROR_NON_EXISTANT_BARAJA, secretKey);
+                }
+            }
+
+            Partida p = new Partida(namePartida, contrasenaPartida, 3, iControl, user, secretKey, listaBarajas);
+            Partida.addPartida(p);
+            p.run();
+        } else {
+            iControl.enviarInt(NO, secretKey);
+            if (user != null) {
+                iControl.enviarInt(USER_ERROR_INVALID_PASSWORD, secretKey);
+            }
+            else{
+                iControl.enviarInt(USER_ERROR_NON_EXISTANT_USER, secretKey);
+            }
+        }
+    }
 }

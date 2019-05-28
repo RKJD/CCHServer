@@ -14,6 +14,7 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
@@ -49,7 +50,7 @@ public class InternetControl {
 
     public SecretKey sendPublicKeyAndRecieveAES() throws IOException, NoSuchAlgorithmException, NoSuchPaddingException {
         byte[] publicKey = EncoderHandler.getPublicKey().getEncoded();
-        
+
         dos.writeUTF(Parser.toHex(publicKey));
 
         String codeRecieved = dis.readUTF();
@@ -57,6 +58,99 @@ public class InternetControl {
 
         SecretKey secretKey = EncoderHandler.encryptSecretKey(claveCodificacion, false);
         return secretKey;
+    }
+
+    public void enviarInt(int num, SecretKey secretKey) throws IOException {
+        dos.writeUTF(
+                Parser.toHex(
+                        EncoderHandler.encodeSimetricEncode(
+                                Parser.fromHex(Parser.parseIntToHex(num)),
+                                secretKey,
+                                true
+                        )
+                )
+        );
+    }
+
+    public void enviarLong(long num, SecretKey secretKey) throws IOException {
+        dos.writeUTF(
+                Parser.toHex(
+                        EncoderHandler.encodeSimetricEncode(
+                                Parser.fromHex(Parser.parseLongToHex(num)),
+                                secretKey,
+                                true
+                        )
+                )
+        );
+    }
+
+    public void enviarHex(String hexString, SecretKey secretKey) throws IOException {
+        dos.writeUTF(
+                Parser.toHex(
+                        EncoderHandler.encodeSimetricEncode(
+                                Parser.fromHex(hexString),
+                                secretKey,
+                                true
+                        )
+                )
+        );
+    }
+
+    public void enviarString(String frase, SecretKey secretKey) throws IOException {
+        dos.writeUTF(
+                Parser.toHex(
+                        EncoderHandler.encodeSimetricEncode(
+                                frase.getBytes(StandardCharsets.UTF_8),
+                                secretKey,
+                                true
+                        )
+                )
+        );
+    }
+    
+    public int recibirInt(SecretKey secretKey) throws IOException {
+        return Parser.parseHexToInt(
+                Parser.toHex(
+                        EncoderHandler.encodeSimetricEncode(
+                                Parser.fromHex(dis.readUTF()),
+                                secretKey,
+                                false
+                        )
+                )
+        );
+    }
+
+    public String recibirHex(SecretKey secretKey) throws IOException {
+        return Parser.toHex(
+                EncoderHandler.encodeSimetricEncode(
+                        Parser.fromHex(dis.readUTF()),
+                        secretKey,
+                        false
+                )
+        );
+    }
+
+    public String recibirString(SecretKey secretKey) throws IOException {
+        return new String(
+                EncoderHandler.encodeSimetricEncode(
+                        Parser.fromHex(dis.readUTF()),
+                        secretKey,
+                        false
+                ),
+                StandardCharsets.UTF_8
+        );
+    }
+
+    public long recibirLong(SecretKey secretKey) throws IOException {
+        return Parser.parseHexToLong(
+                Parser.toHex(
+                        EncoderHandler.encodeSimetricEncode(
+                                Parser.fromHex(dis.readUTF()),
+                                secretKey,
+                                false
+                        )
+                )
+        );
     }
 
     public void createFileFromInput(File f, long length) throws IOException {
@@ -87,20 +181,18 @@ public class InternetControl {
         return dos;
     }
 
-    public void SendFile(File f, String encodedLength) {
+    public void SendFile(File f, SecretKey secretKey) {
         if (f == null) {
             throw new NullPointerException("Null file");
         } else if (!f.exists()) {
             throw new IllegalArgumentException("File doesn't exists");
-        } else if (encodedLength == null) {
-            throw new NullPointerException("encodedLength is null");
         }
-        
+
         DataInputStream disFile = null;
         try {
             disFile = new DataInputStream(new FileInputStream(f));
 
-            dos.writeUTF(encodedLength);
+            enviarLong(f.length(), secretKey);
 
             long fileLength = f.length();
             long actual = 0;
@@ -120,11 +212,11 @@ public class InternetControl {
             Logger.getLogger(InternetControl.class.getName()).log(Level.SEVERE, null, ex);
         } catch (IOException ex) {
             Logger.getLogger(InternetControl.class.getName()).log(Level.SEVERE, null, ex);
-        }
-        finally{
+        } finally {
             try {
                 disFile.close();
-            } catch (IOException | NullPointerException ignore) {}
+            } catch (IOException | NullPointerException ignore) {
+            }
         }
     }
 
