@@ -84,6 +84,8 @@ public class Cliente extends Thread {
     private static final int ERASE_USER = 103;
     private static final int GET_BASIC_INFO_BARAJA = 104;
     private static final int GET_CARTAS_BARAJA = 105;
+    private static final int GUARDA_BARAJA = 106;
+    private static final int BORRA_PROPIA_BARAJA = 107;
 
     //ERRORES
     private static final int CREATE_USER_ERROR_EXISTING_USER = -1;
@@ -92,6 +94,9 @@ public class Cliente extends Thread {
     private static final int USER_ERROR_INVALID_PASSWORD = -4;
     private static final int USER_ERROR_NON_EXISTANT_USER = -5;
     private static final int BARAJA_ERROR_NON_EXISTANT_BARAJA = -6;
+    private static final int CREATE_USER_ERROR_LONG_EMAIL = -7;
+    private static final int CREATE_USER_ERROR_LONG_USERNAME = -8;
+    private static final int CREATE_USER_ERROR_INVALID_USERNAME = -9;
 
     private Socket sk;
     private InternetControl iControl;
@@ -122,6 +127,12 @@ public class Cliente extends Thread {
                 case GET_CARTAS_BARAJA:
                     SendCartasBaraja();
                     break;
+                case GUARDA_BARAJA:
+                    RecibeBarajaNueva();
+                    break;
+                case BORRA_PROPIA_BARAJA:
+                    BorraBarajaPropia();
+                    break;
                 default:
                     System.out.println("El valor " + code + " no esta definido.");
                     break;
@@ -138,8 +149,6 @@ public class Cliente extends Thread {
         }
     }
 
-    public final String PATTERN_STRING = "";
-
     public static boolean checkValidEmail(String email) {
 
         Pattern p = Pattern.compile("^[a-zAz]+@[a-z]+[.][a-z]{2,3}$");
@@ -148,19 +157,36 @@ public class Cliente extends Thread {
         return matcher.matches();
     }
 
+    public static boolean checkValidUsername(String username) {
+        Pattern pattern = Pattern.compile("[\\w]+");
+        Matcher matcher = pattern.matcher(username);
+        return matcher.matches();
+    }
+
     public void RegistrarUsuario() throws IOException, NoSuchAlgorithmException, NoSuchPaddingException, NoSuchPaddingException {
         SecretKey simetricKey = iControl.sendPublicKeyAndRecieveAES();
 
         String email = iControl.recibirString(simetricKey);
+        String contra = iControl.recibirHex(simetricKey);
+        String name = iControl.recibirString(simetricKey);
 
         Usuario user = new Usuario(email);
-        if (checkValidEmail(email) == false) {
+        if (checkValidEmail(email) == false || email.length() > 50) {
             iControl.enviarInt(NO, simetricKey);
-            iControl.enviarInt(CREATE_USER_ERROR_INVALID_EMAIL, simetricKey);
+            if (email.length() > 50) {
+                iControl.enviarInt(CREATE_USER_ERROR_LONG_EMAIL, simetricKey);
+            } else {
+                iControl.enviarInt(CREATE_USER_ERROR_INVALID_EMAIL, simetricKey);
+            }
+        } else if (!checkValidUsername(name) || name.length() > 15) {
+            iControl.enviarInt(NO, simetricKey);
+            if(name.length() > 15) {
+                iControl.enviarInt(CREATE_USER_ERROR_LONG_USERNAME, simetricKey);
+            } else {
+                iControl.enviarInt(CREATE_USER_ERROR_INVALID_USERNAME, simetricKey);
+            }
         } else if (!UsuarioDao.getInstance().exists(user)) {
             iControl.enviarInt(OK, simetricKey);
-            String contra = iControl.recibirHex(simetricKey);
-            String name = iControl.recibirString(simetricKey);
 
             String format = iControl.recibirString(simetricKey);
 
@@ -248,18 +274,10 @@ public class Cliente extends Thread {
         String password = iControl.recibirHex(scrKey);
 
         System.out.println(email + " - " + password);
-        boolean continuar = false;
-        Usuario user = new Usuario(email);
-        if (UsuarioDao.getInstance().exists(user)) {
-            user = UsuarioDao.getInstance().getUsuario(email);
-            if (user.getContrasenya().equals(password)) {
-                continuar = true;
-            }
-        }
+        Usuario user;
+        if ((user = UsuarioDao.getInstance().getUsuario(email)) != null && user.getContrasenya().equals(password)) {
+            iControl.enviarInt(OK, scrKey);
 
-        iControl.enviarInt((continuar) ? OK : NO, scrKey);
-
-        if (continuar) {
             iControl.enviarString(user.getNombreUsuario(), scrKey);
 
             File f = new File(user.getImagenPerfil());
@@ -287,6 +305,13 @@ public class Cliente extends Thread {
             }
 
             iControl.enviarInt(user.getPartidasGanadas(), scrKey);
+        } else {
+            iControl.enviarInt(NO, scrKey);
+            if (user != null) {
+                iControl.enviarInt(USER_ERROR_INVALID_PASSWORD, scrKey);
+            } else {
+                iControl.enviarInt(USER_ERROR_NON_EXISTANT_USER, scrKey);
+            }
         }
     }
 
@@ -297,17 +322,39 @@ public class Cliente extends Thread {
 
         String email = iControl.recibirString(secretKey);
 
-        Usuario user = new Usuario();
-        user.setEmailUsuario(email);
+        Usuario user;
         UsuarioDao uDao = UsuarioDao.getInstance();
-        if (uDao.exists(user)) {
-            user = uDao.getUsuario(email);
+        if ((user = uDao.getUsuario(email)) != null) {
             if (password.equals(user.getContrasenya())) {
-                File f = new File(user.getImagenPerfil());
+
+                List<Cartanegra> listaCartaNegra = CartanegraDao.getInstance().getCartaFromOnlyUser(email);
+                List<Cartablanca> listaCartaBlanca = CartablancaDao.getInstance().getCartaFromOnlyUser(email);
+                List<Carta> listaCartas = CartaDao.getInstance().getCartaFromOnlyUser(email);
+                List<Baraja> listaBarajas = BarajaDao.getInstance().getBarajas(email);
+
+                for (Cartablanca c : listaCartaBlanca) {
+                    CartablancaDao.getInstance().deleteCarta(c);
+                }
+
+                for (Cartanegra c : listaCartaNegra) {
+                    CartanegraDao.getInstance().deleteCarta(c);
+                }
+
+                for (Carta c : listaCartas) {
+                    CartaDao.getInstance().deleteCarta(c);
+                }
+
+                for (Baraja b : listaBarajas) {
+                    BarajaDao.getInstance().deleteBaraja(b);
+                }
+
                 uDao.deleteUsuario(user);
+
+                File f = new File(user.getImagenPerfil());
                 if (f.exists()) {
                     f.delete();
                 }
+
                 iControl.enviarInt(OK, secretKey);
             } else {
                 iControl.enviarInt(NO, secretKey);
@@ -328,9 +375,9 @@ public class Cliente extends Thread {
 
         DataOutputStream dos = iControl.getDos();
 
-        Usuario user = new Usuario(email);
+        Usuario user;
         System.out.println("Llego -- GET_MAZOS");
-        if (UsuarioDao.getInstance().exists(user) && (user = UsuarioDao.getInstance().getUsuario(email)).getContrasenya().equals(password)) {
+        if ((user = UsuarioDao.getInstance().getUsuario(email)) != null && user.getContrasenya().equals(password)) {
 
             System.out.println("OK -- GET_MAZOS");
             iControl.enviarInt(OK, secretKey);
@@ -422,18 +469,19 @@ public class Cliente extends Thread {
         String email = iControl.recibirString(secretKey);
         String password = iControl.recibirHex(secretKey);
 
-        Usuario user = null;
-        if ((user = UsuarioDao.getInstance().getUsuario(email)).getContrasenya().equals(password)) {
+        Usuario user;
+        if ((user = UsuarioDao.getInstance().getUsuario(email)) != null && user.getContrasenya().equals(password)) {
             iControl.enviarInt(OK, secretKey);
 
             String barajaname = iControl.recibirString(secretKey);
 
             String idioma = iControl.recibirString(secretKey);
+
+            int numeroCartas = iControl.recibirInt(secretKey);
+
             Baraja b;
             if ((b = BarajaDao.getInstance().getBaraja(email, barajaname)) != null) {
                 BarajaId bId = b.getId();
-
-                int numeroCartas = iControl.recibirInt(secretKey);
 
                 for (int i = 0; i < numeroCartas; i++) {
                     int isNegra = iControl.recibirInt(secretKey);
@@ -452,7 +500,6 @@ public class Cliente extends Thread {
                     } else {
                         CartaDao.getInstance().saveCarta(c);
                     }
-                    CartaDao.getInstance().saveCarta(c);
 
                     if (isNegra == 1) {
                         int numEspacios = iControl.recibirInt(secretKey);
@@ -476,7 +523,7 @@ public class Cliente extends Thread {
                             if (cNegra != null) {
                                 CartablancaDao.getInstance().deleteCarta(cBlanca);
                             }
-                            CartanegraDao.getInstance().saveCarta(cNegra);
+                            CartablancaDao.getInstance().saveCarta(cBlanca);
                         }
                     }
                 }
@@ -484,6 +531,90 @@ public class Cliente extends Thread {
                 BarajaId bId = new BarajaId(email, barajaname);
                 b = new Baraja(bId, user);
                 b.setIdioma(idioma);
+
+                for (int i = 0; i < numeroCartas; i++) {
+                    int isNegra = iControl.recibirInt(secretKey);
+
+                    int id = iControl.recibirInt(secretKey);
+
+                    String texto = iControl.recibirString(secretKey);
+
+                    CartaId cId = new CartaId(id, email, barajaname);
+
+                    Carta c = new Carta(cId, b);
+                    c.setTexto(texto);
+
+                    CartaDao.getInstance().saveCarta(c);
+
+                    if (isNegra == 1) {
+                        int numEspacios = iControl.recibirInt(secretKey);
+
+                        Cartanegra cNegra = new Cartanegra(c, numEspacios);
+                        CartanegraDao.getInstance().saveCarta(cNegra);
+                    } else {
+                        Cartablanca cBlanca = new Cartablanca(c);
+                        CartablancaDao.getInstance().saveCarta(cBlanca);
+                    }
+                }
+            }
+        } else {
+            iControl.enviarInt(NO, secretKey);
+            if (user != null) {
+                iControl.enviarInt(USER_ERROR_INVALID_PASSWORD, secretKey);
+            } else {
+                iControl.enviarInt(USER_ERROR_NON_EXISTANT_USER, secretKey);
+            }
+        }
+    }
+
+    public void BorraBarajaPropia() throws IOException, NoSuchAlgorithmException, NoSuchPaddingException {
+        SecretKey secretKey = iControl.sendPublicKeyAndRecieveAES();
+
+        String usuarioEmail = iControl.recibirString(secretKey);
+        String usuarioPassword = iControl.recibirHex(secretKey);
+        String nombreBaraja = iControl.recibirString(secretKey);
+        Usuario user;
+        if ((user = UsuarioDao.getInstance().getUsuario(usuarioEmail)) != null && user.getContrasenya().equals(usuarioPassword)) {
+            Baraja baraja;
+            if ((baraja = BarajaDao.getInstance().getBaraja(usuarioEmail, nombreBaraja)) != null) {
+                CartablancaDao cBlancaDao = CartablancaDao.getInstance();
+                CartanegraDao cNegraDao = CartanegraDao.getInstance();
+                CartaDao cDao = CartaDao.getInstance();
+
+                List<Cartablanca> blancas = cBlancaDao.getCartas(usuarioEmail, nombreBaraja);
+                List<Cartanegra> negras = cNegraDao.getCartas(usuarioEmail, nombreBaraja);
+                List<Carta> carta = cDao.getCartas(usuarioEmail, nombreBaraja);
+
+                if (blancas != null) {
+                    blancas.forEach((c) -> {
+                        cBlancaDao.deleteCarta(c);
+                    });
+                }
+
+                if (negras != null) {
+                    negras.forEach((c) -> {
+                        cNegraDao.deleteCarta(c);
+                    });
+                }
+
+                if (carta != null) {
+                    carta.forEach((c) -> {
+                        cDao.deleteCarta(c);
+                    });
+                }
+                BarajaDao.getInstance().deleteBaraja(baraja);
+
+                iControl.enviarInt(OK, secretKey);
+            } else {
+                iControl.enviarInt(NO, secretKey);
+                iControl.enviarInt(BARAJA_ERROR_NON_EXISTANT_BARAJA, secretKey);
+            }
+        } else {
+            iControl.enviarInt(NO, secretKey);
+            if (user != null) {
+                iControl.enviarInt(USER_ERROR_INVALID_PASSWORD, secretKey);
+            } else {
+                iControl.enviarInt(USER_ERROR_NON_EXISTANT_USER, secretKey);
             }
         }
     }
@@ -502,36 +633,33 @@ public class Cliente extends Thread {
 
             String namePartida = iControl.recibirString(secretKey);
             String contrasenaPartida = iControl.recibirString(secretKey);
-            
+
             ArrayList<Baraja> listaBarajas = new ArrayList<>();
-            
+
             int cantidadMazos = iControl.recibirInt(secretKey);
-            
-            for(int i = 0; i < cantidadMazos; i++){
+
+            for (int i = 0; i < cantidadMazos; i++) {
                 String emailMazo, nombreMazo;
                 emailMazo = iControl.recibirString(secretKey);
                 nombreMazo = iControl.recibirString(secretKey);
-                
+
                 Baraja b = BarajaDao.getInstance().getBaraja(emailMazo, nombreMazo);
-                if(b != null){
+                if (b != null) {
                     listaBarajas.add(b);
                     iControl.enviarInt(OK, secretKey);
-                }
-                else{
+                } else {
                     iControl.enviarInt(NO, secretKey);
                     iControl.enviarInt(BARAJA_ERROR_NON_EXISTANT_BARAJA, secretKey);
                 }
             }
 
             Partida p = new Partida(namePartida, contrasenaPartida, 3, iControl, user, secretKey, listaBarajas);
-            Partida.addPartida(p);
             p.run();
         } else {
             iControl.enviarInt(NO, secretKey);
             if (user != null) {
                 iControl.enviarInt(USER_ERROR_INVALID_PASSWORD, secretKey);
-            }
-            else{
+            } else {
                 iControl.enviarInt(USER_ERROR_NON_EXISTANT_USER, secretKey);
             }
         }

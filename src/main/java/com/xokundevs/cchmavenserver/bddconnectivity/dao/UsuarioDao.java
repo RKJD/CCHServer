@@ -61,7 +61,7 @@ public class UsuarioDao {
         return user; 
     }
     
-    public boolean saveUsuario(Usuario user){
+    public synchronized boolean saveUsuario(Usuario user){
         boolean result = false;
         try{
             Session session = HibernateUtil.getSessionFactory().openSession();
@@ -91,7 +91,7 @@ public class UsuarioDao {
         return result;
     }
     
-    public boolean deleteUsuario(Usuario user){
+    public synchronized boolean deleteUsuario(Usuario user){
         boolean result = false;
         try{
             Session session = HibernateUtil.getSessionFactory().openSession();

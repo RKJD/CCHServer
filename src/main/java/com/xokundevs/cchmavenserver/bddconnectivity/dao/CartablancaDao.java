@@ -47,7 +47,7 @@ public class CartablancaDao {
         Cartablanca carta = null;
         try {
             Session session = HibernateUtil.getSessionFactory().openSession();
-            Query q = session.createQuery("from Carta carta where baraja.id.emailUsuario = :correo and baraja.id.nombreBaraja = :nombreBaraja and baraja.id.idCarta = :idCarta");
+            Query q = session.createQuery("from Carta carta where carta.id.emailUsuario = :correo and carta.id.nombreBaraja = :nombreBaraja and carta.id.idCarta = :idCarta");
             q.setString("correo", correo);
             q.setString("nombreBaraja", nombreBaraja);
             q.setInteger("idCarta", idCarta);
@@ -59,6 +59,22 @@ public class CartablancaDao {
         }
 
         return carta;
+    }
+    
+    public List<Cartablanca> getCartaFromOnlyUser(String correo){
+        List<Cartablanca> cartas = null;
+        try {
+            Session session = HibernateUtil.getSessionFactory().openSession();
+            Query q = session.createQuery("from Cartablanca carta where carta.id.emailUsuario = :correo");
+            q.setString("correo", correo);
+            List<Cartablanca> list = q.list();
+            cartas = (list.isEmpty()) ? null : list;
+            session.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return cartas;
     }
 
     public boolean saveCarta(Cartablanca carta) {

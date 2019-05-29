@@ -16,8 +16,8 @@ import javax.crypto.SecretKey;
  * @author Antonio
  */
 class Partida {
-    private static final int EMPEZAR_PARTIDA = 1;
-    private static final int CERRAR_PARTIDA = -1;
+    private static final int EMPEZAR_PARTIDA = 1001;
+    private static final int CERRAR_PARTIDA = 1002;
     
     private static final int ERROR_NO_SUFFICIENT_PLAYERS = -1001;
     
@@ -32,7 +32,7 @@ class Partida {
     private InternetControl[] iControls;
     private Usuario[] user;
     private String nombrePartida, contrasena;
-    private SecretKey[] secretKey;
+    private SecretKey[] secretKeys;
     private int currentPlayers;
     private ArrayList<Baraja> listaBarajas;
 
@@ -48,8 +48,8 @@ class Partida {
         
         this.nombrePartida = nombrePartida;
         this.contrasena = contrasena;
-        this.secretKey = new SecretKey[maxPlayers];
-        this.secretKey[0] = secretKey;
+        this.secretKeys = new SecretKey[maxPlayers];
+        this.secretKeys[0] = secretKey;
         currentPlayers = 1;
         
         this.listaBarajas = listaMazos;
@@ -57,13 +57,26 @@ class Partida {
     
     
     public void run() throws IOException{
+        Partida.addPartida(this);
         InternetControl principal = iControls[0];
         int result;
         do{
-            result = principal.recibirInt(secretKey[0]);
+            result = principal.recibirInt(secretKeys[0]);
             if(currentPlayers < 3 && result != CERRAR_PARTIDA){
-                principal.enviarInt(ERROR_NO_SUFFICIENT_PLAYERS, secretKey[0]);
+                principal.enviarInt(ERROR_NO_SUFFICIENT_PLAYERS, secretKeys[0]);
             }
         }while(currentPlayers < 3 && result != CERRAR_PARTIDA);
+    }
+    
+    public synchronized void conectarAPartida(InternetControl iControl, SecretKey secretKey){
+        if(currentPlayers < maxPlayers){
+            iControls[currentPlayers] = iControl;
+            secretKeys[currentPlayers] = secretKey;
+            currentPlayers++;
+        }
+    }
+    
+    class GameRunnable {
+        
     }
 }
