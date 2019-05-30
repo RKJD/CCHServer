@@ -77,8 +77,8 @@ public class Cliente extends Thread {
     private static final String ROOT_IMAGE;
 
     //ORDENES
-    private static final int NO = -1;
-    private static final int OK = 1;
+    public static final int NO = -1;
+    public static final int OK = 1;
     private static final int LOGIN = 102;
     private static final int CREATE_USER = 101;
     private static final int ERASE_USER = 103;
@@ -97,6 +97,7 @@ public class Cliente extends Thread {
     private static final int CREATE_USER_ERROR_LONG_EMAIL = -7;
     private static final int CREATE_USER_ERROR_LONG_USERNAME = -8;
     private static final int CREATE_USER_ERROR_INVALID_USERNAME = -9;
+    private static final int PARTIDA_ERROR_NON_EXISTANT_PARTIDA = -10;
 
     private Socket sk;
     private InternetControl iControl;
@@ -180,7 +181,7 @@ public class Cliente extends Thread {
             }
         } else if (!checkValidUsername(name) || name.length() > 15) {
             iControl.enviarInt(NO, simetricKey);
-            if(name.length() > 15) {
+            if (name.length() > 15) {
                 iControl.enviarInt(CREATE_USER_ERROR_LONG_USERNAME, simetricKey);
             } else {
                 iControl.enviarInt(CREATE_USER_ERROR_INVALID_USERNAME, simetricKey);
@@ -480,13 +481,31 @@ public class Cliente extends Thread {
             int numeroCartas = iControl.recibirInt(secretKey);
 
             Baraja b;
+
+            int cuentaId = 1;
             if ((b = BarajaDao.getInstance().getBaraja(email, barajaname)) != null) {
                 BarajaId bId = b.getId();
+
+                List<Cartanegra> listaCartaNegra = CartanegraDao.getInstance().getCartas(user.getEmailUsuario(), barajaname);
+                List<Cartablanca> listaCartaBlanca = CartablancaDao.getInstance().getCartas(user.getEmailUsuario(), barajaname);
+                List<Carta> listaCartas = CartaDao.getInstance().getCartas(user.getEmailUsuario(), barajaname);
+
+                listaCartaBlanca.forEach((c) -> {
+                    CartablancaDao.getInstance().deleteCarta(c);
+                });
+
+                listaCartaNegra.forEach((c) -> {
+                    CartanegraDao.getInstance().deleteCarta(c);
+                });
+
+                listaCartas.forEach((c) -> {
+                    CartaDao.getInstance().deleteCarta(c);
+                });
 
                 for (int i = 0; i < numeroCartas; i++) {
                     int isNegra = iControl.recibirInt(secretKey);
 
-                    int id = iControl.recibirInt(secretKey);
+                    int id = cuentaId++;
 
                     String texto = iControl.recibirString(secretKey);
 
@@ -494,37 +513,18 @@ public class Cliente extends Thread {
 
                     Carta c = new Carta(cId, b);
                     c.setTexto(texto);
-
-                    if (CartaDao.getInstance().getCarta(cId.getEmailUsuario(), cId.getNombreBaraja(), cId.getIdCarta()) != null) {
-                        CartaDao.getInstance().updateCarta(c);
-                    } else {
-                        CartaDao.getInstance().saveCarta(c);
-                    }
+                    CartaDao.getInstance().saveCarta(c);
 
                     if (isNegra == 1) {
                         int numEspacios = iControl.recibirInt(secretKey);
 
                         Cartanegra cNegra = new Cartanegra(c, numEspacios);
-                        if (CartanegraDao.getInstance().getCarta(cId.getEmailUsuario(), cId.getNombreBaraja(), cId.getIdCarta()) != null) {
-                            CartanegraDao.getInstance().updateCarta(cNegra);
-                        } else {
-                            Cartablanca cBlanca = CartablancaDao.getInstance().getCarta(cId.getEmailUsuario(), cId.getNombreBaraja(), cId.getIdCarta());
-                            if (cBlanca != null) {
-                                CartablancaDao.getInstance().deleteCarta(cBlanca);
-                            }
-                            CartanegraDao.getInstance().saveCarta(cNegra);
-                        }
+                        cNegra.setId(cId);
+                        CartanegraDao.getInstance().saveCarta(cNegra);
                     } else {
                         Cartablanca cBlanca = new Cartablanca(c);
-                        if (CartablancaDao.getInstance().getCarta(cId.getEmailUsuario(), cId.getNombreBaraja(), cId.getIdCarta()) != null) {
-                            CartablancaDao.getInstance().updateCarta(cBlanca);
-                        } else {
-                            Cartanegra cNegra = CartanegraDao.getInstance().getCarta(cId.getEmailUsuario(), cId.getNombreBaraja(), cId.getIdCarta());
-                            if (cNegra != null) {
-                                CartablancaDao.getInstance().deleteCarta(cBlanca);
-                            }
-                            CartablancaDao.getInstance().saveCarta(cBlanca);
-                        }
+                        cBlanca.setId(cId);
+                        CartablancaDao.getInstance().saveCarta(cBlanca);
                     }
                 }
             } else {
@@ -532,28 +532,34 @@ public class Cliente extends Thread {
                 b = new Baraja(bId, user);
                 b.setIdioma(idioma);
 
-                for (int i = 0; i < numeroCartas; i++) {
-                    int isNegra = iControl.recibirInt(secretKey);
+                if (BarajaDao.getInstance().saveBaraja(b)) {
 
-                    int id = iControl.recibirInt(secretKey);
+                    for (int i = 0; i < numeroCartas; i++) {
+                        int isNegra = iControl.recibirInt(secretKey);
 
-                    String texto = iControl.recibirString(secretKey);
+                        int id = cuentaId++;
 
-                    CartaId cId = new CartaId(id, email, barajaname);
+                        String texto = iControl.recibirString(secretKey);
 
-                    Carta c = new Carta(cId, b);
-                    c.setTexto(texto);
+                        CartaId cId = new CartaId(id, email, barajaname);
 
-                    CartaDao.getInstance().saveCarta(c);
+                        Carta c = new Carta(cId, b);
+                        c.setTexto(texto);
 
-                    if (isNegra == 1) {
-                        int numEspacios = iControl.recibirInt(secretKey);
+                        System.out.println("Es negra? " + isNegra + ", id+ ");
+                        CartaDao.getInstance().saveCarta(c);
 
-                        Cartanegra cNegra = new Cartanegra(c, numEspacios);
-                        CartanegraDao.getInstance().saveCarta(cNegra);
-                    } else {
-                        Cartablanca cBlanca = new Cartablanca(c);
-                        CartablancaDao.getInstance().saveCarta(cBlanca);
+                        if (isNegra == 1) {
+                            int numEspacios = iControl.recibirInt(secretKey);
+
+                            Cartanegra cNegra = new Cartanegra(c, numEspacios);
+                            cNegra.setId(cId);
+                            CartanegraDao.getInstance().saveCarta(cNegra);
+                        } else {
+                            Cartablanca cBlanca = new Cartablanca(c);
+                            cBlanca.setId(cId);
+                            CartablancaDao.getInstance().saveCarta(cBlanca);
+                        }
                     }
                 }
             }
@@ -654,7 +660,59 @@ public class Cliente extends Thread {
             }
 
             Partida p = new Partida(namePartida, contrasenaPartida, 3, iControl, user, secretKey, listaBarajas);
-            p.run();
+            p.start();
+            try {
+                p.join();
+            } catch (InterruptedException e) {
+            }
+        } else {
+            iControl.enviarInt(NO, secretKey);
+            if (user != null) {
+                iControl.enviarInt(USER_ERROR_INVALID_PASSWORD, secretKey);
+            } else {
+                iControl.enviarInt(USER_ERROR_NON_EXISTANT_USER, secretKey);
+            }
+        }
+    }
+
+    public void GetPartidas() throws IOException, NoSuchAlgorithmException, NoSuchPaddingException {
+        SecretKey secretKey = iControl.sendPublicKeyAndRecieveAES();
+
+        ArrayList<Partida> partida = Partida.getGames();
+        iControl.enviarInt(partida.size(), secretKey);
+
+        for (int i = 0; i < partida.size(); i++) {
+            Partida p = partida.get(i);
+            iControl.enviarString(p.getName(), secretKey);
+            iControl.enviarString(p.getCreatorUserName(), secretKey);
+            iControl.enviarInt(p.getCurrentPlayers(), secretKey);
+            iControl.enviarInt(p.getMaxPlayers(), secretKey);
+        }
+    }
+
+    public void UnirsePartida() throws IOException, NoSuchAlgorithmException, NoSuchPaddingException {
+        SecretKey secretKey = iControl.sendPublicKeyAndRecieveAES();
+
+        String email, contra;
+
+        email = iControl.recibirString(secretKey);
+        contra = iControl.recibirHex(secretKey);
+
+        Usuario user = null;
+        if ((user = UsuarioDao.getInstance().getUsuario(email)) != null && user.getContrasenya().equals(contra)) {
+            String nombrePartida = iControl.recibirString(secretKey);
+
+            Partida p = Partida.BuscarPartida(nombrePartida);
+            Thread t = p.conectarAPartida(iControl, user, secretKey);
+            if (t != null) {
+                try {
+                    t.join();
+                } catch (InterruptedException e) {
+                }
+            } else {
+                iControl.enviarInt(NO, secretKey);
+                iControl.enviarInt(PARTIDA_ERROR_NON_EXISTANT_PARTIDA, secretKey);
+            }
         } else {
             iControl.enviarInt(NO, secretKey);
             if (user != null) {
