@@ -86,6 +86,9 @@ public class Cliente extends Thread {
     private static final int GET_CARTAS_BARAJA = 105;
     private static final int GUARDA_BARAJA = 106;
     private static final int BORRA_PROPIA_BARAJA = 107;
+    private static final int GET_PARTIDAS = 108;
+    private static final int CREAR_PARTIDA = 109;
+    private static final int ENTRAR_PARTIDA = 110;
 
     //ERRORES
     private static final int CREATE_USER_ERROR_EXISTING_USER = -1;
@@ -98,6 +101,8 @@ public class Cliente extends Thread {
     private static final int CREATE_USER_ERROR_LONG_USERNAME = -8;
     private static final int CREATE_USER_ERROR_INVALID_USERNAME = -9;
     private static final int PARTIDA_ERROR_NON_EXISTANT_PARTIDA = -10;
+    private static final int PARTIDA_ERROR_EXISTING_PARTIDA = -11;
+    private static final int PARTIDA_ERROR_NO_ENTRAR_DENIED = -12;
 
     private Socket sk;
     private InternetControl iControl;
@@ -134,6 +139,16 @@ public class Cliente extends Thread {
                 case BORRA_PROPIA_BARAJA:
                     BorraBarajaPropia();
                     break;
+                case GET_PARTIDAS:
+                    GetPartidas();
+                    break;
+                case CREAR_PARTIDA:
+                    CreaPartida();
+                    break;
+                case ENTRAR_PARTIDA:
+                    UnirsePartida();
+                    break;
+
                 default:
                     System.out.println("El valor " + code + " no esta definido.");
                     break;
@@ -164,6 +179,7 @@ public class Cliente extends Thread {
         return matcher.matches();
     }
 
+    //USUARIOS
     public void RegistrarUsuario() throws IOException, NoSuchAlgorithmException, NoSuchPaddingException, NoSuchPaddingException {
         SecretKey simetricKey = iControl.sendPublicKeyAndRecieveAES();
 
@@ -367,6 +383,7 @@ public class Cliente extends Thread {
         }
     }
 
+    //BARAJAS
     public void SendBasicBarajasInfo() throws IOException, NoSuchAlgorithmException, NoSuchPaddingException {
         SecretKey secretKey = iControl.sendPublicKeyAndRecieveAES();
 
@@ -625,6 +642,7 @@ public class Cliente extends Thread {
         }
     }
 
+    //PARTIDAS
     public void CreaPartida() throws IOException, NoSuchAlgorithmException, NoSuchPaddingException {
         SecretKey secretKey = iControl.sendPublicKeyAndRecieveAES();
 
@@ -641,7 +659,7 @@ public class Cliente extends Thread {
             String contrasenaPartida = iControl.recibirString(secretKey);
 
             ArrayList<Baraja> listaBarajas = new ArrayList<>();
-
+            int maxPlayers = iControl.recibirInt(secretKey);
             int cantidadMazos = iControl.recibirInt(secretKey);
 
             for (int i = 0; i < cantidadMazos; i++) {
@@ -649,21 +667,24 @@ public class Cliente extends Thread {
                 emailMazo = iControl.recibirString(secretKey);
                 nombreMazo = iControl.recibirString(secretKey);
 
-                Baraja b = BarajaDao.getInstance().getBaraja(emailMazo, nombreMazo);
-                if (b != null) {
-                    listaBarajas.add(b);
+                if (emailMazo.equals(user.getEmailUsuario()) || emailMazo.equals("default")) {
+                    Baraja b = BarajaDao.getInstance().getBaraja(emailMazo, nombreMazo);
+                    if (b != null) {
+                        listaBarajas.add(b);
+                    }
+                }
+            }
+            if (listaBarajas.isEmpty()) {
+                iControl.enviarInt(NO, secretKey);
+                iControl.enviarInt(BARAJA_ERROR_NON_EXISTANT_BARAJA, secretKey);
+            } else {
+                Partida p = new Partida(namePartida, contrasenaPartida, maxPlayers, listaBarajas, user.getEmailUsuario());
+                if (Partida.addPartida(p)) {
                     iControl.enviarInt(OK, secretKey);
                 } else {
                     iControl.enviarInt(NO, secretKey);
-                    iControl.enviarInt(BARAJA_ERROR_NON_EXISTANT_BARAJA, secretKey);
+                    iControl.enviarInt(PARTIDA_ERROR_EXISTING_PARTIDA, secretKey);
                 }
-            }
-
-            Partida p = new Partida(namePartida, contrasenaPartida, 3, iControl, user, secretKey, listaBarajas);
-            p.start();
-            try {
-                p.join();
-            } catch (InterruptedException e) {
             }
         } else {
             iControl.enviarInt(NO, secretKey);
@@ -683,7 +704,7 @@ public class Cliente extends Thread {
 
         for (int i = 0; i < partida.size(); i++) {
             Partida p = partida.get(i);
-            iControl.enviarString(p.getName(), secretKey);
+            iControl.enviarString(p.getNombrePartida(), secretKey);
             iControl.enviarString(p.getCreatorUserName(), secretKey);
             iControl.enviarInt(p.getCurrentPlayers(), secretKey);
             iControl.enviarInt(p.getMaxPlayers(), secretKey);
@@ -697,17 +718,22 @@ public class Cliente extends Thread {
 
         email = iControl.recibirString(secretKey);
         contra = iControl.recibirHex(secretKey);
-
+        String nombrePartida = iControl.recibirString(secretKey);
+        String contraPartida = iControl.recibirString(secretKey);
         Usuario user = null;
         if ((user = UsuarioDao.getInstance().getUsuario(email)) != null && user.getContrasenya().equals(contra)) {
-            String nombrePartida = iControl.recibirString(secretKey);
-
             Partida p = Partida.BuscarPartida(nombrePartida);
-            Thread t = p.conectarAPartida(iControl, user, secretKey);
-            if (t != null) {
-                try {
-                    t.join();
-                } catch (InterruptedException e) {
+            if (p != null) {
+                Thread t = p.conectarAPartida(contraPartida, iControl, user, secretKey);
+                if (t != null) {
+                    System.out.println(user.getEmailUsuario() + "se ha unido a la partida " + nombrePartida);
+                    try {
+                        t.join();
+                    } catch (InterruptedException e) {
+                    }
+                } else {
+                    iControl.enviarInt(NO, secretKey);
+                    iControl.enviarInt(PARTIDA_ERROR_NO_ENTRAR_DENIED, secretKey);
                 }
             } else {
                 iControl.enviarInt(NO, secretKey);
@@ -722,4 +748,5 @@ public class Cliente extends Thread {
             }
         }
     }
+
 }

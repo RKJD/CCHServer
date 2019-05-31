@@ -21,55 +21,72 @@ class Partida extends Thread {
 
     private static final int EMPEZAR_PARTIDA = 1001;
     private static final int CERRAR_PARTIDA = 1002;
+    private static final int NEW_PLAYER = 1003;
 
     private static final int ERROR_NO_SUFFICIENT_PLAYERS = -1001;
     private static final int ERROR_FILLED_ROOM = -1002;
 
     private static final ArrayList<Partida> PARTIDAS_ABIERTAS = new ArrayList<>();
 
-    public static void addPartida(Partida p) {
-        PARTIDAS_ABIERTAS.add(p);
+    public static boolean addPartida(Partida p) {
+        boolean exists = false;
+        synchronized (PARTIDAS_ABIERTAS) {
+            for (Partida par : PARTIDAS_ABIERTAS) {
+                if (par.nombrePartida.equals(p.nombrePartida)) {
+                    exists = true;
+                    break;
+                }
+            }
+            if (!exists) {
+                PARTIDAS_ABIERTAS.add(p);
+            }
+        }
+        return !exists;
     }
 
     private boolean canEnter;
     private int maxPlayers;
     private final InternetControl[] iControls;
-    private final Usuario[] user;
+    private final Usuario[] users;
     private final String nombrePartida;
     private final String contrasena;
     private final SecretKey[] secretKeys;
     private int currentPlayers;
+    private String emailCreator;
     private ArrayList<Baraja> listaBarajas;
 
-    public Partida(String nombrePartida, String contrasena, int maxPlayers,
-            InternetControl iControl, Usuario user, SecretKey secretKey,
-            ArrayList<Baraja> listaMazos) {
-        this.canEnter = true;
+    public Partida(String nombrePartida, String contrasena, int maxPlayers, ArrayList<Baraja> listaMazos, String emailString) {
+        this.canEnter = false;
         this.maxPlayers = maxPlayers;
         this.iControls = new InternetControl[maxPlayers];
-        iControls[0] = iControl;
-        this.user = new Usuario[maxPlayers];
-        this.user[0] = user;
+        this.users = new Usuario[maxPlayers];
 
         this.nombrePartida = nombrePartida;
         this.contrasena = contrasena;
         this.secretKeys = new SecretKey[maxPlayers];
-        this.secretKeys[0] = secretKey;
-        currentPlayers = 1;
+
+        currentPlayers = 0;
 
         this.listaBarajas = listaMazos;
+
+        emailCreator = emailString;
+    }
+
+    public String getNombrePartida() {
+        return nombrePartida;
     }
 
     @Override
     public void run() {
-        synchronized (PARTIDAS_ABIERTAS) {
-            Partida.addPartida(this);
-        }
         InternetControl principal = iControls[0];
         try {
             int result;
             do {
-                result = principal.recibirInt(secretKeys[0]);
+                try {
+                    result = principal.recibirInt(secretKeys[0]);
+                } catch (IOException e) {
+                    result = CERRAR_PARTIDA;
+                }
                 if (currentPlayers < 3 && result != CERRAR_PARTIDA) {
                     principal.enviarInt(ERROR_NO_SUFFICIENT_PLAYERS, secretKeys[0]);
                 }
@@ -77,6 +94,8 @@ class Partida extends Thread {
 
             if (result == EMPEZAR_PARTIDA) {
 
+            } else {
+                BorraPartida();
             }
         } catch (IOException ex) {
             Logger.getLogger(Partida.class.getName()).log(Level.SEVERE, null, ex);
@@ -92,18 +111,51 @@ class Partida extends Thread {
         }
     }
 
-    public Thread conectarAPartida(InternetControl iControl, Usuario user, SecretKey secretKey) throws IOException {
+    private void BorraPartida() {
         synchronized (this) {
-            if (currentPlayers < maxPlayers && canEnter) {
-                int pos = currentPlayers;
-                iControls[pos] = iControl;
-                this.user[pos] = user;
-                secretKeys[pos] = secretKey;
-                currentPlayers++;
-                return this;
-            } else {
-                return null;
+            synchronized (PARTIDAS_ABIERTAS) {
+                PARTIDAS_ABIERTAS.remove(this);
             }
+        }
+    }
+
+    public Partida conectarAPartida(String password, InternetControl iControl, Usuario user, SecretKey secretKey) throws IOException {
+        synchronized (this) {
+            if (password.equals(this.contrasena)) {
+                int pos = currentPlayers;
+                if (currentPlayers == 0) {
+                    if (user.getEmailUsuario().equals(emailCreator)) {
+                        iControl.enviarInt(Cliente.OK, secretKey);
+                        users[pos] = user;
+                        iControls[pos] = iControl;
+                        secretKeys[pos] = secretKey;
+                        currentPlayers++;
+                        canEnter = true;
+                        this.start();
+                        return this;
+                    } else {
+                        return null;
+                    }
+                } else if (currentPlayers < maxPlayers && canEnter) {
+                    iControls[pos] = iControl;
+                    this.users[pos] = user;
+                    secretKeys[pos] = secretKey;
+                    synchronized (iControls) {
+                        for (int i = 0; i < currentPlayers; i++) {
+                            iControls[i].enviarInt(NEW_PLAYER, secretKey);
+                            iControls[i].enviarString(user.getEmailUsuario(), secretKey);
+                            iControl.enviarInt(NEW_PLAYER, secretKey);
+                            iControl.enviarString(users[i].getEmailUsuario(), secretKey);
+                        }
+                        currentPlayers++;
+                        iControl.enviarInt(Cliente.OK, secretKey);
+                    }
+                    return this;
+                } else {
+                    return null;
+                }
+            }
+            return null;
         }
     }
 
@@ -121,8 +173,8 @@ class Partida extends Thread {
         }
         return p;
     }
-    
-    public static ArrayList<Partida> getGames(){
+
+    public static ArrayList<Partida> getGames() {
         return (ArrayList<Partida>) PARTIDAS_ABIERTAS.clone();
     }
 
@@ -133,8 +185,8 @@ class Partida extends Thread {
     public int getMaxPlayers() {
         return maxPlayers;
     }
-    
-    public String getCreatorUserName(){
-        return user[0].getNombreUsuario();
+
+    public String getCreatorUserName() {
+        return users[0].getNombreUsuario();
     }
 }
