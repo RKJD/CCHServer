@@ -29,13 +29,16 @@ public class CartablancaDao {
         return INSTANCE;
     }
     public List<Cartablanca> getCartas(String correo, String nombreBaraja) {
-        List list = null;
+        List<Cartablanca> list = null;
         try {
             Session s = HibernateUtil.getSessionFactory().openSession();
             Query q = s.createQuery("from Cartablanca c where c.id.emailUsuario = :correo and c.id.nombreBaraja = :nombreBaraja");
             q.setString("correo", correo);
             q.setString("nombreBaraja", nombreBaraja);
             list = q.list();
+            for(Cartablanca c : list){
+                c.getCarta().getTexto();
+            }
             s.close();
         } catch (Exception e) {
             e.printStackTrace();

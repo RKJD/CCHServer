@@ -6,9 +6,13 @@
 package com.xokundevs.cchmavenserver.model;
 
 import com.xokundevs.cchmavenserver.bddconnectivity.model.Baraja;
+import com.xokundevs.cchmavenserver.bddconnectivity.model.Carta;
+import com.xokundevs.cchmavenserver.bddconnectivity.model.Cartablanca;
+import com.xokundevs.cchmavenserver.bddconnectivity.model.Cartanegra;
 import com.xokundevs.cchmavenserver.bddconnectivity.model.Usuario;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.crypto.SecretKey;
@@ -20,11 +24,20 @@ import javax.crypto.SecretKey;
 class Partida extends Thread {
 
     private static final int EMPEZAR_PARTIDA = 1001;
-    private static final int CERRAR_PARTIDA = 1002;
+    private static final int REPARTIR_CARTAS = 1002;
+    private static final int ESCOGER_TZAR = 1003;
+    private static final int MUESTRA_CARTA_NEGRA = 1004;
+    private static final int ESCOGER_CARTAS = 1005;
+    private static final int TZAR_ESCOGE_GANADOR = 1006;
+    private static final int TZAR_YA_HA_ESCOGIDO_GANADOR = 1009;
+    private static final int REPARTIR_CARTAS_FASE_2 = 1007;
+    private static final int YA_HAY_GANADOR = 1008;
+    private static final int CERRAR_PARTIDA = 1500;
     private static final int NEW_PLAYER = 1003;
 
     private static final int ERROR_NO_SUFFICIENT_PLAYERS = -1001;
     private static final int ERROR_FILLED_ROOM = -1002;
+    private static final int ERROR_PLAYER_DISCONNECTED = -1003;
 
     private static final ArrayList<Partida> PARTIDAS_ABIERTAS = new ArrayList<>();
 
@@ -46,30 +59,34 @@ class Partida extends Thread {
 
     private boolean canEnter;
     private int maxPlayers;
-    private final InternetControl[] iControls;
-    private final Usuario[] users;
     private final String nombrePartida;
     private final String contrasena;
-    private final SecretKey[] secretKeys;
     private int currentPlayers;
-    private String emailCreator;
-    private ArrayList<Baraja> listaBarajas;
+    private final String emailCreator;
+    private ArrayList<Cartablanca> listaCartasBlancas;
+    private ArrayList<Cartanegra> listaCartasNegras;
+    private final int maxPoints = 5;
+    private Cartanegra lastBlackCard = null;
+    private Player currentTzar = null;
+    private final ArrayList<Player> jugadores;
 
-    public Partida(String nombrePartida, String contrasena, int maxPlayers, ArrayList<Baraja> listaMazos, String emailString) {
+    public Partida(String nombrePartida, String contrasena, int maxPlayers,
+            ArrayList<Cartablanca> listaCartasBlancas,
+            ArrayList<Cartanegra> listaCartasNegras, String emailString) {
         this.canEnter = false;
         this.maxPlayers = maxPlayers;
-        this.iControls = new InternetControl[maxPlayers];
-        this.users = new Usuario[maxPlayers];
 
         this.nombrePartida = nombrePartida;
         this.contrasena = contrasena;
-        this.secretKeys = new SecretKey[maxPlayers];
 
         currentPlayers = 0;
 
-        this.listaBarajas = listaMazos;
+        this.listaCartasBlancas = listaCartasBlancas;
+        this.listaCartasNegras = listaCartasNegras;
 
         emailCreator = emailString;
+
+        jugadores = new ArrayList<>();
     }
 
     public String getNombrePartida() {
@@ -78,36 +95,518 @@ class Partida extends Thread {
 
     @Override
     public void run() {
-        InternetControl principal = iControls[0];
+        InternetControl principal = jugadores.get(0).iControl;
         try {
             int result;
             do {
                 try {
-                    result = principal.recibirInt(secretKeys[0]);
+                    result = principal.recibirInt(jugadores.get(0).secretKey);
                 } catch (IOException e) {
                     result = CERRAR_PARTIDA;
                 }
-                if (currentPlayers < 3 && result != CERRAR_PARTIDA) {
-                    principal.enviarInt(ERROR_NO_SUFFICIENT_PLAYERS, secretKeys[0]);
+                synchronized (this) {
+                    if (currentPlayers < 3 && result != CERRAR_PARTIDA) {
+                        principal.enviarInt(ERROR_NO_SUFFICIENT_PLAYERS, jugadores.get(0).secretKey);
+                    }
                 }
             } while (currentPlayers < 3 && result != CERRAR_PARTIDA);
 
             if (result == EMPEZAR_PARTIDA) {
-
+                cicloDeJuego();
             } else {
-                BorraPartida();
+                cerrarPartida();
             }
         } catch (IOException ex) {
             Logger.getLogger(Partida.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
 
-    private void AvisaEmpiezaPartida() throws IOException {
+    private int ESTADO = EMPEZAR_PARTIDA;
+
+    private void cicloDeJuego() {
+        AvisaEmpiezaPartida();
+        ESTADO = REPARTIR_CARTAS;
+        while (ESTADO != CERRAR_PARTIDA) {
+            switch (ESTADO) {
+                case REPARTIR_CARTAS:
+                    repartirCartasInicial();
+                    ESTADO = ESCOGER_TZAR;
+                    break;
+                case ESCOGER_TZAR:
+                    escogeTzar();
+                    ESTADO = MUESTRA_CARTA_NEGRA;
+                    break;
+                case MUESTRA_CARTA_NEGRA:
+                    GetNewBlackCard();
+                    ESTADO = ESCOGER_CARTAS;
+                    break;
+                case ESCOGER_CARTAS:
+                    JugarCartas();
+                    ESTADO = TZAR_ESCOGE_GANADOR;
+                    break;
+                case TZAR_ESCOGE_GANADOR:
+                    if (TzarEscogeGanador()) {
+                        ESTADO = YA_HAY_GANADOR;
+                    } else {
+                        ESTADO = REPARTIR_CARTAS_FASE_2;
+                    }
+                    break;
+                case REPARTIR_CARTAS_FASE_2:
+                    repartirCartasInicial();
+                    ESTADO = ESCOGER_TZAR;
+                    break;
+
+                case YA_HAY_GANADOR:
+                    if (AcabarPartidaYaGanador()) {
+                        ESTADO = CERRAR_PARTIDA;
+                    } else {
+                        ESTADO = ESCOGER_TZAR;
+                    }
+                    break;
+            }
+        }
+        cerrarPartida();
+    }
+
+    public void cerrarPartida() {
+        Thread[] threads = new Thread[currentPlayers];
+
+        for (int i = 0; i < currentPlayers; i++) {
+            final InternetControl iC = jugadores.get(i).iControl;
+            final SecretKey secretKey = jugadores.get(i).secretKey;
+            final int tempCount = i;
+            threads[i] = new Thread(() -> {
+                try {
+                    synchronized (iC) {
+                        iC.enviarInt(CERRAR_PARTIDA, secretKey);
+                    }
+                } catch (IOException ex) {
+                    borrarJugador(tempCount);
+                }
+            });
+        }
+        for (Thread t : threads) {
+            t.start();
+        }
+        for (Thread thread : threads) {
+            try {
+                thread.join();
+            } catch (InterruptedException ex) {
+                Logger.getLogger(Partida.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+        BorraPartida();
+    }
+
+    public boolean AcabarPartidaYaGanador() {
+        Player ganador = null;
+        for (Player p : jugadores) {
+            if (p.puntos >= maxPoints) {
+                ganador = p;
+                break;//SAL DEL FOR BREAK
+            }
+        }
+        final Player realGanador = ganador;
+        if (realGanador != null) {
+            Thread[] threads = new Thread[currentPlayers];
+
+            for (int i = 0; i < threads.length; i++) {
+                final InternetControl iC = jugadores.get(i).iControl;
+                final SecretKey secretKey = jugadores.get(i).secretKey;
+                final int countTemp = i;
+                threads[i] = new Thread(() -> {
+                    try {
+                        iC.enviarInt(YA_HAY_GANADOR, secretKey);
+                        iC.enviarString(realGanador.user.getEmailUsuario(), secretKey);
+                    } catch (IOException e) {
+                        borrarJugador(countTemp);
+                    }
+                });
+            }
+
+            for (Thread thread : threads) {
+                thread.start();
+            }
+
+            for (Thread thread : threads) {
+                try {
+                    thread.join();
+                } catch (InterruptedException ex) {
+                    Logger.getLogger(Partida.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+            return true;
+        }
+        return false;
+    }
+
+    public boolean TzarEscogeGanador() {
+        Thread[] threads = new Thread[currentPlayers];
+
+        final Player[] OrderPlayer = new Player[currentPlayers - 1];
+        int intTemp = 0;
+        for (int i = 0; i < currentPlayers; i++) {
+            if (!jugadores.get(i).equals(currentTzar)) {
+                OrderPlayer[intTemp] = jugadores.get(i);
+                intTemp++;
+            }
+        }
+        Player temp = null;
+
+        for (int i = 0; i < currentPlayers * 3; i++) {
+            int random1, random2;
+            random1 = (int) (Math.random() * currentPlayers);
+            random2 = (int) (Math.random() * currentPlayers);
+            temp = OrderPlayer[random1];
+            OrderPlayer[random1] = OrderPlayer[random2];
+            OrderPlayer[random2] = temp;
+        }
+
+        for (int i = 0; i < threads.length; i++) {
+            final InternetControl iC = jugadores.get(i).iControl;
+            final SecretKey secretKey = jugadores.get(i).secretKey;
+            final int tempCount = i;
+            threads[i] = new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        synchronized (iC) {
+                            iC.enviarInt(TZAR_ESCOGE_GANADOR, secretKey);
+                            iC.enviarInt(OrderPlayer.length, secretKey);
+                            for (int i = 0; i < OrderPlayer.length; i++) {
+                                Cartablanca[] cartasJug = OrderPlayer[i].cartaEscogida;
+                                for (int j = 0; j < cartasJug.length; i++) {
+                                    iC.enviarString(cartasJug[j].getCarta().getTexto(), secretKey);
+                                }
+                            }
+                        }
+                    } catch (IOException ex) {
+                        borrarJugador(tempCount);
+                    }
+                }
+            });
+        }
+
+        for (Thread thread : threads) {
+            thread.start();
+        }
+
+        for (Thread thread : threads) {
+            try {
+                thread.join();
+            } catch (InterruptedException ex) {
+                Logger.getLogger(Partida.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+
+        int ganador = Integer.MIN_VALUE;
+        try {
+            synchronized (currentTzar.iControl) {
+                ganador = currentTzar.iControl.recibirInt(currentTzar.secretKey);
+            }
+        } catch (IOException ex) {
+            borrarJugador(currentTzar);
+        }
+
+        boolean hayGanador = false;
+        if (ganador > -1) {
+            Player pGanador = OrderPlayer[ganador];
+            pGanador.puntos++;
+            threads = new Thread[currentPlayers];
+            for (int i = 0; i < threads.length; i++) {
+                final InternetControl iC = jugadores.get(i).iControl;
+                final SecretKey secretKey = jugadores.get(i).secretKey;
+                final int tempCount = i;
+                threads[i] = new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            synchronized (iC) {
+                                iC.enviarInt(TZAR_YA_HA_ESCOGIDO_GANADOR, secretKey);
+                                iC.enviarString(pGanador.user.getEmailUsuario(), secretKey);
+                                iC.enviarInt(pGanador.puntos, secretKey);
+                            }
+                        } catch (IOException ex) {
+                            borrarJugador(tempCount);
+                        }
+                    }
+                });
+            }
+
+            for (Thread thread : threads) {
+                thread.start();
+            }
+
+            for (Thread thread : threads) {
+                try {
+                    thread.join();
+                } catch (InterruptedException ex) {
+                    Logger.getLogger(Partida.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+
+            currentTzar.wasTzar = true;
+
+            hayGanador = (pGanador.puntos >= maxPoints);
+        }
+
+        return hayGanador;
+    }
+
+    public void JugarCartas() {
+
+        Thread[] threads = new Thread[currentPlayers];
+
+        for (int i = 0; i < currentPlayers; i++) {
+            final InternetControl iC = jugadores.get(i).iControl;
+            final SecretKey secretKey = jugadores.get(i).secretKey;
+            final int tempCount = i;
+            threads[i] = new Thread(() -> {
+                try {
+                    synchronized (iC) {
+                        iC.enviarInt(ESCOGER_CARTAS, secretKey);
+                        int cantidad = iC.recibirInt(secretKey);
+                        jugadores.get(tempCount).cartaEscogida = new Cartablanca[cantidad];
+                        for (int j = 0; j < cantidad; j++) {
+                            jugadores.get(tempCount).cartaEscogida[j] = jugadores.get(tempCount).cartasEnMano.get(iC.recibirInt(secretKey));
+                        }
+                    }
+                } catch (IOException ex) {
+                    borrarJugador(tempCount);
+                }
+            });
+        }
+
+        for (Thread t : threads) {
+            t.start();
+        }
+        for (Thread thread : threads) {
+            try {
+                thread.join();
+            } catch (InterruptedException ex) {
+                Logger.getLogger(Partida.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+    }
+
+    private void GetNewBlackCard() {
+        Cartanegra enviar;
+        do {
+            enviar = listaCartasNegras.get((int) (Math.random() * listaCartasNegras.size()));
+        } while (lastBlackCard != null && lastBlackCard.equals(enviar));
+
+        lastBlackCard = enviar;
+
+        Thread[] threads = new Thread[currentPlayers];
+
+        for (int i = 0; i < currentPlayers; i++) {
+            final InternetControl iC = jugadores.get(i).iControl;
+            final SecretKey secretKey = jugadores.get(i).secretKey;
+            final int tempCount = i;
+            threads[i] = new Thread(() -> {
+                try {
+                    synchronized (iC) {
+                        iC.enviarInt(MUESTRA_CARTA_NEGRA, secretKey);
+                        Carta c = lastBlackCard.getCarta();
+                        iC.enviarString(c.getTexto(), secretKey);
+                        iC.enviarInt(c.getId().getIdCarta(), secretKey);
+                        iC.enviarString(c.getId().getEmailUsuario(), secretKey);
+                        iC.enviarString(c.getId().getNombreBaraja(), secretKey);
+                        iC.enviarInt(lastBlackCard.getNumeroEspacios(), secretKey);
+                    }
+                } catch (IOException ex) {
+                    borrarJugador(tempCount);
+                }
+            });
+        }
+        for (Thread t : threads) {
+            t.start();
+        }
+        for (Thread thread : threads) {
+            try {
+                thread.join();
+            } catch (InterruptedException ex) {
+                Logger.getLogger(Partida.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+    }
+
+    private void repartirCartasInicial() {
+        ArrayList<Cartablanca> cartasValidas = (ArrayList<Cartablanca>) listaCartasBlancas.clone();
+
+        for (Player p : jugadores) {
+            cartasValidas.removeAll(p.cartasEnMano);
+        }
+
+        for (int j = 0; j < currentPlayers; j++) {
+            while (jugadores.get(j).cartasEnMano.size() < 10) {
+                Cartablanca c = cartasValidas.get((int) (Math.random() * cartasValidas.size()));
+                cartasValidas.remove(c);
+                jugadores.get(j).cartasEnMano.add(c);
+            }
+        }
+        Thread[] threads = new Thread[currentPlayers];
+
+        for (int i = 0; i < currentPlayers; i++) {
+            final InternetControl iC = jugadores.get(i).iControl;
+            final SecretKey secretKey = jugadores.get(i).secretKey;
+            final int tempCount = i;
+            threads[i] = new Thread(() -> {
+                try {
+                    synchronized (iC) {
+                        iC.enviarInt(REPARTIR_CARTAS, secretKey);
+                        iC.enviarInt(10, secretKey);
+                        for (int j = 0; j < 10; j++) {
+                            Carta c = jugadores.get(tempCount).cartasEnMano.get(j).getCarta();
+                            iC.enviarString(c.getTexto(), secretKey);
+                            iC.enviarInt(c.getId().getIdCarta(), secretKey);
+                            iC.enviarString(c.getId().getEmailUsuario(), secretKey);
+                            iC.enviarString(c.getId().getNombreBaraja(), secretKey);
+                        }
+                    }
+                } catch (IOException ex) {
+                    borrarJugador(tempCount);
+                }
+            });
+        }
+        for (Thread t : threads) {
+            t.start();
+        }
+        for (Thread thread : threads) {
+            try {
+                thread.join();
+            } catch (InterruptedException ex) {
+                Logger.getLogger(Partida.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+    }
+
+    private void AvisaEmpiezaPartida() {
         synchronized (this) {
             canEnter = false;
         }
-        for (int i = 1; i < maxPlayers; i++) {
-            iControls[i].enviarInt(EMPEZAR_PARTIDA, secretKeys[i]);
+        Thread t[] = new Thread[currentPlayers];
+        for (int i = 0; i < currentPlayers; i++) {
+
+            final InternetControl iC = jugadores.get(i).iControl;
+            final SecretKey ScKey = jugadores.get(i).secretKey;
+            final int tempCount = i;
+
+            if (iC != null) {
+                t[i] = new Thread(() -> {
+                    try {
+                        synchronized (iC) {
+                            iC.enviarInt(EMPEZAR_PARTIDA, ScKey);
+                        }
+                    } catch (IOException ex) {
+                        borrarJugador(tempCount);
+                    }
+                });
+            }
+        }
+        for (Thread tt : t) {
+            tt.start();
+        }
+        for (Thread tt : t) {
+            try {
+                tt.join();
+            } catch (InterruptedException ex) {
+                Logger.getLogger(Partida.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+    }
+
+    private void escogeTzar() {
+        ArrayList<Player> array = new ArrayList<>();
+
+        for (int i = 0; i < currentPlayers;) {
+            jugadores.get(i).isTzar = false;
+            if (!jugadores.get(i).wasTzar) {
+                array.add(jugadores.get(i));
+            }
+        }
+
+        if (array.isEmpty()) {
+            for (int i = 0; i < currentPlayers;) {
+                jugadores.get(i).wasTzar = false;
+            }
+            for (int i = 0; i < currentPlayers;) {
+                if (!jugadores.get(i).wasTzar) {
+                    array.add(jugadores.get(i));
+                }
+            }
+        }
+
+        int randonNum = (int) (Math.random() * array.size());
+
+        Player tzar = array.get(randonNum);
+        tzar.isTzar = true;
+        currentTzar = tzar;
+        Thread[] threads = new Thread[currentPlayers];
+
+        for (int i = 0; i < currentPlayers; i++) {
+            final InternetControl iC = jugadores.get(i).iControl;
+            final SecretKey secretKey = jugadores.get(i).secretKey;
+            final int tempCount = i;
+            threads[i] = new Thread(() -> {
+                try {
+                    synchronized (iC) {
+                        iC.enviarInt(ESCOGER_TZAR, secretKey);
+                        iC.enviarString(currentTzar.user.getEmailUsuario(), secretKey);
+                    }
+                } catch (IOException ex) {
+                    borrarJugador(tempCount);
+                }
+            });
+        }
+        for (Thread t : threads) {
+            t.start();
+        }
+        for (Thread thread : threads) {
+            try {
+                thread.join();
+            } catch (InterruptedException ex) {
+                Logger.getLogger(Partida.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+    }
+
+    private void borrarJugador(int i) {
+        synchronized (this) {
+            Player tempPlayer = jugadores.get(i);
+            jugadores.remove(i);
+            currentPlayers--;
+            for (int z = 0; z < currentPlayers; z++) {
+                final int temp = z;
+                new Thread(() -> {
+                    synchronized (Partida.this) {
+                        try {
+                            jugadores.get(temp).iControl.enviarInt(ERROR_PLAYER_DISCONNECTED, jugadores.get(temp).secretKey);
+                            jugadores.get(temp).iControl.enviarString(tempPlayer.user.getEmailUsuario(), jugadores.get(temp).secretKey);
+                        } catch (IOException ex) {
+                        }
+                    }
+                }).start();
+            }
+        }
+    }
+
+    private void borrarJugador(Player player) {
+        synchronized (this) {
+            jugadores.remove(player);
+            currentPlayers--;
+            for (int z = 0; z < currentPlayers; z++) {
+                final int temp = z;
+                new Thread(() -> {
+                    synchronized (Partida.this) {
+                        try {
+                            jugadores.get(temp).iControl.enviarInt(ERROR_PLAYER_DISCONNECTED, jugadores.get(temp).secretKey);
+                            jugadores.get(temp).iControl.enviarString(player.user.getEmailUsuario(), jugadores.get(temp).secretKey);
+                        } catch (IOException ex) {
+                        }
+                    }
+                }).start();
+            }
         }
     }
 
@@ -126,9 +625,7 @@ class Partida extends Thread {
                 if (currentPlayers == 0) {
                     if (user.getEmailUsuario().equals(emailCreator)) {
                         iControl.enviarInt(Cliente.OK, secretKey);
-                        users[pos] = user;
-                        iControls[pos] = iControl;
-                        secretKeys[pos] = secretKey;
+                        jugadores.add(new Player(user, iControl, secretKey));
                         currentPlayers++;
                         canEnter = true;
                         this.start();
@@ -137,15 +634,13 @@ class Partida extends Thread {
                         return null;
                     }
                 } else if (currentPlayers < maxPlayers && canEnter) {
-                    iControls[pos] = iControl;
-                    this.users[pos] = user;
-                    secretKeys[pos] = secretKey;
-                    synchronized (iControls) {
+                    jugadores.add(new Player(user, iControl, secretKey));
+                    synchronized (jugadores) {
                         for (int i = 0; i < currentPlayers; i++) {
-                            iControls[i].enviarInt(NEW_PLAYER, secretKey);
-                            iControls[i].enviarString(user.getEmailUsuario(), secretKey);
+                            jugadores.get(i).iControl.enviarInt(NEW_PLAYER, secretKey);
+                            jugadores.get(i).iControl.enviarString(user.getEmailUsuario(), secretKey);
                             iControl.enviarInt(NEW_PLAYER, secretKey);
-                            iControl.enviarString(users[i].getEmailUsuario(), secretKey);
+                            iControl.enviarString(jugadores.get(i).user.getEmailUsuario(), secretKey);
                         }
                         currentPlayers++;
                         iControl.enviarInt(Cliente.OK, secretKey);
@@ -187,6 +682,24 @@ class Partida extends Thread {
     }
 
     public String getCreatorUserName() {
-        return users[0].getNombreUsuario();
+        return jugadores.get(0).user.getNombreUsuario();
+    }
+
+    public class Player {
+
+        ArrayList<Cartablanca> cartasEnMano;
+        Cartablanca[] cartaEscogida = null;
+        SecretKey secretKey;
+        InternetControl iControl;
+        int puntos = 0;
+        Usuario user;
+        boolean isTzar = false, wasTzar = false;
+
+        private Player(Usuario user, InternetControl iControl, SecretKey secretKey) {
+            this.user = user;
+            this.iControl = iControl;
+            this.secretKey = secretKey;
+            cartasEnMano = new ArrayList<>();
+        }
     }
 }

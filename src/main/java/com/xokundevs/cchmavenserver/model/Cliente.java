@@ -678,7 +678,18 @@ public class Cliente extends Thread {
                 iControl.enviarInt(NO, secretKey);
                 iControl.enviarInt(BARAJA_ERROR_NON_EXISTANT_BARAJA, secretKey);
             } else {
-                Partida p = new Partida(namePartida, contrasenaPartida, maxPlayers, listaBarajas, user.getEmailUsuario());
+                ArrayList<Cartablanca> listaCartasBlancas = new ArrayList<>();
+                ArrayList<Cartanegra> listaCartasNegras = new ArrayList<>();
+                for(Baraja b : listaBarajas){
+                    String e_temp, b_temp;
+                    e_temp = b.getId().getEmailUsuario();
+                    b_temp = b.getId().getNombreBaraja();
+                    listaCartasBlancas.addAll(CartablancaDao.getInstance().getCartas(e_temp, b_temp));
+                    listaCartasNegras.addAll(CartanegraDao.getInstance().getCartas(e_temp, b_temp));
+                }
+                Partida p = new Partida(namePartida, contrasenaPartida,
+                        maxPlayers, listaCartasBlancas,
+                        listaCartasNegras, user.getEmailUsuario());
                 if (Partida.addPartida(p)) {
                     iControl.enviarInt(OK, secretKey);
                 } else {
