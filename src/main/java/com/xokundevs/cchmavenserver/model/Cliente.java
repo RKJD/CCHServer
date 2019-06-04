@@ -680,7 +680,7 @@ public class Cliente extends Thread {
             } else {
                 ArrayList<Cartablanca> listaCartasBlancas = new ArrayList<>();
                 ArrayList<Cartanegra> listaCartasNegras = new ArrayList<>();
-                for(Baraja b : listaBarajas){
+                for (Baraja b : listaBarajas) {
                     String e_temp, b_temp;
                     e_temp = b.getId().getEmailUsuario();
                     b_temp = b.getId().getNombreBaraja();
@@ -691,7 +691,17 @@ public class Cliente extends Thread {
                         maxPlayers, listaCartasBlancas,
                         listaCartasNegras, user.getEmailUsuario());
                 if (Partida.addPartida(p)) {
-                    iControl.enviarInt(OK, secretKey);
+                    if (p.conectarAPartida(contrasenaPartida, iControl, user, secretKey) != null) {
+                        iControl.enviarInt(OK, secretKey);
+                        try{
+                            p.join();
+                        }catch(InterruptedException e){}
+                    }
+                    else{
+                        p.BorraPartida();
+                        iControl.enviarInt(NO, secretKey);
+                        iControl.enviarInt(PARTIDA_ERROR_NO_ENTRAR_DENIED, secretKey);
+                    }
                 } else {
                     iControl.enviarInt(NO, secretKey);
                     iControl.enviarInt(PARTIDA_ERROR_EXISTING_PARTIDA, secretKey);
@@ -734,10 +744,11 @@ public class Cliente extends Thread {
         Usuario user = null;
         if ((user = UsuarioDao.getInstance().getUsuario(email)) != null && user.getContrasenya().equals(contra)) {
             Partida p = Partida.BuscarPartida(nombrePartida);
+            System.out.println(nombrePartida);
             if (p != null) {
                 Thread t = p.conectarAPartida(contraPartida, iControl, user, secretKey);
                 if (t != null) {
-                    System.out.println(user.getEmailUsuario() + "se ha unido a la partida " + nombrePartida);
+                    System.out.println(user.getEmailUsuario() + " se ha unido a la partida " + nombrePartida);
                     try {
                         t.join();
                     } catch (InterruptedException e) {

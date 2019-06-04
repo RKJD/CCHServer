@@ -35,7 +35,7 @@ import javax.crypto.spec.SecretKeySpec;
  */
 public class InternetControl {
 
-    private static final int BLOCK_SIZE = 1024;
+    private static final int BLOCK_SIZE = 4096;
 
     private Socket sk;
     private DataInputStream dis;

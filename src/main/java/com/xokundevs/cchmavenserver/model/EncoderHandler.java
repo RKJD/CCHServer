@@ -110,7 +110,7 @@ public class EncoderHandler {
             Cipher c1 = Cipher.getInstance(ASYMMETRIC_CIPHER_FORMAT);
             c1.init(mode, getPrivateKey());
             byte[] asdf = c1.doFinal(keyEncoded);
-            System.out.println(Parser.toHex(asdf));
+            
             key = new SecretKeySpec(asdf, SYMMETRIC_ALGORITHM);
         } catch (InvalidKeyException | BadPaddingException
                 | NoSuchAlgorithmException | NoSuchPaddingException
