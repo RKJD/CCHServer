@@ -150,43 +150,45 @@ class Partida extends Thread {
         AvisaEmpiezaPartida();
         ESTADO = REPARTIR_CARTAS;
         while (ESTADO != CERRAR_PARTIDA) {
-            System.out.println(ESTADO);
-            switch (ESTADO) {
-                case REPARTIR_CARTAS:
-                    repartirCartasInicial();
-                    ESTADO = ESCOGER_TZAR;
-                    break;
-                case ESCOGER_TZAR:
-                    escogeTzar();
-                    ESTADO = MUESTRA_CARTA_NEGRA;
-                    break;
-                case MUESTRA_CARTA_NEGRA:
-                    GetNewBlackCard();
-                    ESTADO = ESCOGER_CARTAS;
-                    break;
-                case ESCOGER_CARTAS:
-                    JugarCartas();
-                    ESTADO = TZAR_ESCOGE_GANADOR;
-                    break;
-                case TZAR_ESCOGE_GANADOR:
-                    if (TzarEscogeGanador()) {
-                        ESTADO = YA_HAY_GANADOR;
-                    } else {
-                        ESTADO = REPARTIR_CARTAS;
-                    }
-                    break;
-                case REPARTIR_CARTAS_FASE_2:
-                    repartirCartasInicial();
-                    ESTADO = ESCOGER_TZAR;
-                    break;
-
-                case YA_HAY_GANADOR:
-                    if (AcabarPartidaYaGanador()) {
-                        ESTADO = CERRAR_PARTIDA;
-                    } else {
+            if (currentPlayers > MINIMUM_PLAYERS) {
+                System.out.println(ESTADO);
+                switch (ESTADO) {
+                    case REPARTIR_CARTAS:
+                        repartirCartasInicial();
                         ESTADO = ESCOGER_TZAR;
-                    }
-                    break;
+                        break;
+                    case ESCOGER_TZAR:
+                        escogeTzar();
+                        ESTADO = MUESTRA_CARTA_NEGRA;
+                        break;
+                    case MUESTRA_CARTA_NEGRA:
+                        GetNewBlackCard();
+                        ESTADO = ESCOGER_CARTAS;
+                        break;
+                    case ESCOGER_CARTAS:
+                        JugarCartas();
+                        ESTADO = TZAR_ESCOGE_GANADOR;
+                        break;
+                    case TZAR_ESCOGE_GANADOR:
+                        if (TzarEscogeGanador()) {
+                            ESTADO = YA_HAY_GANADOR;
+                        } else {
+                            ESTADO = REPARTIR_CARTAS;
+                        }
+                        break;
+                    case REPARTIR_CARTAS_FASE_2:
+                        repartirCartasInicial();
+                        ESTADO = ESCOGER_TZAR;
+                        break;
+
+                    case YA_HAY_GANADOR:
+                        if (AcabarPartidaYaGanador()) {
+                            ESTADO = CERRAR_PARTIDA;
+                        } else {
+                            ESTADO = ESCOGER_TZAR;
+                        }
+                        break;
+                }
             }
         }
         BorraPartida();
@@ -267,81 +269,29 @@ class Partida extends Thread {
     }
 
     public boolean TzarEscogeGanador() {
-        checkUsersIfClose();
-        
-        Thread[] threads = new Thread[currentPlayers];
+        if (!checkUsersIfClose()) {
 
-        final Player[] OrderPlayer = new Player[currentPlayers - 1];
-        int intTemp = 0;
-        for (int i = 0; i < currentPlayers; i++) {
-            if (!jugadores.get(i).equals(currentTzar)) {
-                OrderPlayer[intTemp] = jugadores.get(i);
-                intTemp++;
-            }
-        }
-        Player temp = null;
+            Thread[] threads = new Thread[currentPlayers];
 
-        for (int i = 0; i < currentPlayers * 3; i++) {
-            int random1, random2;
-            random1 = (int) (Math.random() * OrderPlayer.length);
-            random2 = (int) (Math.random() * OrderPlayer.length);
-            temp = OrderPlayer[random1];
-            OrderPlayer[random1] = OrderPlayer[random2];
-            OrderPlayer[random2] = temp;
-        }
-
-        for (int i = 0; i < threads.length; i++) {
-            final InternetControl iC = jugadores.get(i).iControl;
-            final SecretKey secretKey = jugadores.get(i).secretKey;
-            final int tempCount = i;
-            threads[i] = new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                        synchronized (iC) {
-                            iC.enviarInt(TZAR_ESCOGE_GANADOR, secretKey);
-                            iC.enviarInt(OrderPlayer.length, secretKey);
-                            for (int i = 0; i < OrderPlayer.length; i++) {
-                                Cartablanca[] cartasJug = OrderPlayer[i].cartaEscogida;
-                                iC.enviarInt(cartasJug.length, secretKey);
-                                for (int j = 0; j < cartasJug.length; j++) {
-                                    iC.enviarString(cartasJug[j].getCarta().getTexto(), secretKey);
-                                }
-                            }
-                        }
-                    } catch (IOException ex) {
-                        borrarJugador(tempCount);
-                    }
+            final Player[] OrderPlayer = new Player[currentPlayers - 1];
+            int intTemp = 0;
+            for (int i = 0; i < currentPlayers; i++) {
+                if (!jugadores.get(i).equals(currentTzar)) {
+                    OrderPlayer[intTemp] = jugadores.get(i);
+                    intTemp++;
                 }
-            });
-        }
-
-        for (Thread thread : threads) {
-            thread.start();
-        }
-
-        for (Thread thread : threads) {
-            try {
-                thread.join();
-            } catch (InterruptedException ex) {
-                Logger.getLogger(Partida.class.getName()).log(Level.SEVERE, null, ex);
             }
-        }
+            Player temp = null;
 
-        int ganador = Integer.MIN_VALUE;
-        try {
-            synchronized (currentTzar.iControl) {
-                ganador = currentTzar.iControl.recibirInt(currentTzar.secretKey);
+            for (int i = 0; i < currentPlayers * 3; i++) {
+                int random1, random2;
+                random1 = (int) (Math.random() * OrderPlayer.length);
+                random2 = (int) (Math.random() * OrderPlayer.length);
+                temp = OrderPlayer[random1];
+                OrderPlayer[random1] = OrderPlayer[random2];
+                OrderPlayer[random2] = temp;
             }
-        } catch (IOException ex) {
-            borrarJugador(currentTzar);
-        }
 
-        boolean hayGanador = false;
-        if (ganador > -1) {
-            Player pGanador = OrderPlayer[ganador];
-            pGanador.puntos++;
-            threads = new Thread[currentPlayers];
             for (int i = 0; i < threads.length; i++) {
                 final InternetControl iC = jugadores.get(i).iControl;
                 final SecretKey secretKey = jugadores.get(i).secretKey;
@@ -351,9 +301,15 @@ class Partida extends Thread {
                     public void run() {
                         try {
                             synchronized (iC) {
-                                iC.enviarInt(TZAR_YA_HA_ESCOGIDO_GANADOR, secretKey);
-                                iC.enviarString(pGanador.user.getEmailUsuario(), secretKey);
-                                iC.enviarInt(pGanador.puntos, secretKey);
+                                iC.enviarInt(TZAR_ESCOGE_GANADOR, secretKey);
+                                iC.enviarInt(OrderPlayer.length, secretKey);
+                                for (int i = 0; i < OrderPlayer.length; i++) {
+                                    Cartablanca[] cartasJug = OrderPlayer[i].cartaEscogida;
+                                    iC.enviarInt(cartasJug.length, secretKey);
+                                    for (int j = 0; j < cartasJug.length; j++) {
+                                        iC.enviarString(cartasJug[j].getCarta().getTexto(), secretKey);
+                                    }
+                                }
                             }
                         } catch (IOException ex) {
                             borrarJugador(tempCount);
@@ -374,12 +330,60 @@ class Partida extends Thread {
                 }
             }
 
-            currentTzar.wasTzar = true;
+            int ganador = Integer.MIN_VALUE;
+            try {
+                synchronized (currentTzar.iControl) {
+                    ganador = currentTzar.iControl.recibirInt(currentTzar.secretKey);
+                }
+            } catch (IOException ex) {
+                borrarJugador(currentTzar);
+            }
 
-            hayGanador = (pGanador.puntos >= maxPoints);
+            boolean hayGanador = false;
+            if (ganador > -1) {
+                Player pGanador = OrderPlayer[ganador];
+                pGanador.puntos++;
+                threads = new Thread[currentPlayers];
+                for (int i = 0; i < threads.length; i++) {
+                    final InternetControl iC = jugadores.get(i).iControl;
+                    final SecretKey secretKey = jugadores.get(i).secretKey;
+                    final int tempCount = i;
+                    threads[i] = new Thread(new Runnable() {
+                        @Override
+                        public void run() {
+                            try {
+                                synchronized (iC) {
+                                    iC.enviarInt(TZAR_YA_HA_ESCOGIDO_GANADOR, secretKey);
+                                    iC.enviarString(pGanador.user.getEmailUsuario(), secretKey);
+                                    iC.enviarInt(pGanador.puntos, secretKey);
+                                }
+                            } catch (IOException ex) {
+                                borrarJugador(tempCount);
+                            }
+                        }
+                    });
+                }
+
+                for (Thread thread : threads) {
+                    thread.start();
+                }
+
+                for (Thread thread : threads) {
+                    try {
+                        thread.join();
+                    } catch (InterruptedException ex) {
+                        Logger.getLogger(Partida.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                }
+
+                currentTzar.wasTzar = true;
+
+                hayGanador = (pGanador.puntos >= maxPoints);
+            }
+
+            return hayGanador;
         }
-
-        return hayGanador;
+        return false;
     }
 
     public void JugarCartas() {
