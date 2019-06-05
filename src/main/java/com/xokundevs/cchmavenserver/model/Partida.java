@@ -59,7 +59,16 @@ class Partida extends Thread {
     }
 
     public static ArrayList<Partida> getGames() {
-        return (ArrayList<Partida>) PARTIDAS_ABIERTAS.clone();
+        synchronized (PARTIDAS_ABIERTAS) {
+            ArrayList<Partida> games = (ArrayList<Partida>) PARTIDAS_ABIERTAS.clone();
+            for (int i = 0; i < games.size(); i++) {
+                if (!games.get(i).canEnter) {
+                    games.remove(i);
+                    i--;
+                }
+            }
+        }
+        return games;
     }
 
     public static boolean addPartida(Partida p) {
