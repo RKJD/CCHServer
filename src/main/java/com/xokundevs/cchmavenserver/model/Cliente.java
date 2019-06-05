@@ -167,7 +167,7 @@ public class Cliente extends Thread {
 
     public static boolean checkValidEmail(String email) {
 
-        Pattern p = Pattern.compile("^[a-zAz]+@[a-z]+[.][a-z]{2,3}$");
+        Pattern p = Pattern.compile("^[a-zA-Z.0-9]+@[a-z]+[.][a-z]{2,3}$");
         Matcher matcher = p.matcher(email);
 
         return matcher.matches();

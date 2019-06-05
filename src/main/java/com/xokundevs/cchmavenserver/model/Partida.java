@@ -132,7 +132,7 @@ class Partida extends Thread {
                         result = ERROR_NO_SUFFICIENT_PLAYERS;
                     }
                 }
-            } while (!((result == EMPEZAR_PARTIDA && currentPlayers <= MINIMUM_PLAYERS) || result == CERRAR_PARTIDA));
+            } while (!((result == EMPEZAR_PARTIDA && currentPlayers >= MINIMUM_PLAYERS) || result == CERRAR_PARTIDA));
 
             if (result == EMPEZAR_PARTIDA) {
                 cicloDeJuego();
@@ -150,7 +150,7 @@ class Partida extends Thread {
         AvisaEmpiezaPartida();
         ESTADO = REPARTIR_CARTAS;
         while (ESTADO != CERRAR_PARTIDA) {
-            if (currentPlayers > MINIMUM_PLAYERS) {
+            if (currentPlayers >= MINIMUM_PLAYERS) {
                 System.out.println(ESTADO);
                 switch (ESTADO) {
                     case REPARTIR_CARTAS:
@@ -189,6 +189,9 @@ class Partida extends Thread {
                         }
                         break;
                 }
+            }
+            else{
+                ESTADO = CERRAR_PARTIDA;
             }
         }
         BorraPartida();
