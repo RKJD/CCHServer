@@ -59,8 +59,9 @@ class Partida extends Thread {
     }
 
     public static ArrayList<Partida> getGames() {
+        ArrayList<Partida> games = null;
         synchronized (PARTIDAS_ABIERTAS) {
-            ArrayList<Partida> games = (ArrayList<Partida>) PARTIDAS_ABIERTAS.clone();
+            games = (ArrayList<Partida>) PARTIDAS_ABIERTAS.clone();
             for (int i = 0; i < games.size(); i++) {
                 if (!games.get(i).canEnter) {
                     games.remove(i);
@@ -308,6 +309,7 @@ class Partida extends Thread {
                 final InternetControl iC = jugadores.get(i).iControl;
                 final SecretKey secretKey = jugadores.get(i).secretKey;
                 final int tempCount = i;
+                final Player jugador = jugadores.get(i);
                 threads[i] = new Thread(new Runnable() {
                     @Override
                     public void run() {
@@ -324,7 +326,7 @@ class Partida extends Thread {
                                 }
                             }
                         } catch (IOException ex) {
-                            borrarJugador(tempCount);
+                            borrarJugador(jugador);
                         }
                     }
                 });

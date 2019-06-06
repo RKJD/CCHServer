@@ -1000,7 +1000,7 @@ insert into cartanegra values(496, 'default', 'Default Deck Eng', 1);
 insert into carta values(497, 'default', 'Default Deck Eng', "Introducing Xtreme Baseball! It's like baseball,but with ___!");
 insert into cartanegra values(497, 'default', 'Default Deck Eng', 1);
 insert into carta values(498, 'default', 'Default Deck Eng', "In a world ravaged by ___ our only solace is ___.");
-insert into cartanegra values(498, 'default', 'Default Deck Eng', 1);
+insert into cartanegra values(498, 'default', 'Default Deck Eng', 2);
 insert into carta values(499, 'default', 'Default Deck Eng', "War! What is it good for?");
 insert into cartanegra values(499, 'default', 'Default Deck Eng', 1);
 insert into carta values(500, 'default', 'Default Deck Eng', "During sex, I like to think about ___.");
