@@ -43,8 +43,8 @@ Contributor(s):
   <session-factory>
     <property name="hibernate.connection.driver_class">com.mysql.jdbc.Driver</property>
     <property name="hibernate.connection.url">jdbc:mysql://localhost:3306/cardshumanity?useUnicode=true&amp;useJDBCCompliantTimezoneShift=true&amp;useLegacyDatetimeCode=false&amp;serverTimezone=UTC</property>
-    <property name="hibernate.connection.username">root</property>
-    <property name="hibernate.connection.password">12345</property>
+    <property name="hibernate.connection.username">cchAdmin</property>
+    <property name="hibernate.connection.password">rbacrm90</property>
     <mapping resource="Cartablanca.hbm.xml"/>
     <mapping resource="Usuario.hbm.xml"/>
     <mapping resource="Cartanegra.hbm.xml"/>

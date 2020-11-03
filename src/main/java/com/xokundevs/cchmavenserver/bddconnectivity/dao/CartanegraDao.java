@@ -124,4 +124,21 @@ public class CartanegraDao {
         }
         return result;
     }
+
+    public boolean deleteListCarta(List<Cartanegra> listCarta){
+        boolean result = false;
+        try {
+            Session session = HibernateUtil.getSessionFactory().openSession();
+            session.beginTransaction();
+            for (Cartanegra cartablanca : listCarta) {
+                session.delete(cartablanca);
+            }
+            session.getTransaction().commit();
+            session.close();
+            result = true;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return result;
+    }
 }

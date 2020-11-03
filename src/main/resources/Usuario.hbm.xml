@@ -16,9 +16,6 @@
     <property name="partidasGanadas" type="java.lang.Integer">
       <column name="partidasGanadas"/>
     </property>
-    <property name="imagenPerfil" type="string">
-      <column length="200" name="imagenPerfil"/>
-    </property>
     <set fetch="select" inverse="true" lazy="true" name="barajas" table="baraja">
       <key>
         <column length="50" name="emailUsuario" not-null="true"/>

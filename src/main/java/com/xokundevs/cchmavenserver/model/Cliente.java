@@ -65,11 +65,11 @@ public class Cliente extends Thread {
         }
     }
 
-//ENCODING VARIABLES
-    //ROOT IMAGE DIRECTORY
+    // ENCODING VARIABLES
+    // ROOT IMAGE DIRECTORY
     private static final String ROOT_IMAGE;
 
-    //ORDENES
+    // ORDENES
     public static final int NO = -1;
     public static final int OK = 1;
     private static final int LOGIN = 102;
@@ -83,12 +83,12 @@ public class Cliente extends Thread {
     private static final int CREAR_PARTIDA = 109;
     private static final int ENTRAR_PARTIDA = 110;
 
-    //ERRORES
+    // ERRORES
     private static final int CREATE_USER_ERROR_EXISTING_USER = -1;
     private static final int CREATE_USER_ERROR_INVALID_EMAIL = -2;
     private static final int CREATE_USER_ERROR_INVALID_PARAMETERS = -3;
-    private static final int USER_ERROR_INVALID_PASSWORD = -4;
-    private static final int USER_ERROR_NON_EXISTANT_USER = -5;
+    private static final int INVALID_CREDENTIALS_ERROR = -4;
+    private static final int USER_ERROR_NON_EXISTANT_USER = -4;
     private static final int BARAJA_ERROR_NON_EXISTANT_BARAJA = -6;
     private static final int CREATE_USER_ERROR_LONG_EMAIL = -7;
     private static final int CREATE_USER_ERROR_LONG_USERNAME = -8;
@@ -96,18 +96,19 @@ public class Cliente extends Thread {
     private static final int PARTIDA_ERROR_NON_EXISTANT_PARTIDA = -10;
     private static final int PARTIDA_ERROR_EXISTING_PARTIDA = -11;
     private static final int PARTIDA_ERROR_NO_ENTRAR_DENIED = -12;
+    private static final int UNKOWN_ERROR = -9999;
 
     private Socket sk;
     private InternetControl iControl;
 
     public Cliente(Socket sk) throws IOException {
         this.sk = sk;
+        iControl = new InternetControl(sk);
     }
 
     @Override
     public void run() {
         try {
-            iControl = new InternetControl(sk);
             int code = iControl.getDis().readInt();
             System.out.println(code);
             switch (code) {
@@ -146,8 +147,7 @@ public class Cliente extends Thread {
                     System.out.println("El valor " + code + " no esta definido.");
                     break;
             }
-        } catch (IOException | NoSuchAlgorithmException
-                | NoSuchPaddingException ex) {
+        } catch (IOException | NoSuchAlgorithmException | NoSuchPaddingException ex) {
             Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
             try {
@@ -172,8 +172,9 @@ public class Cliente extends Thread {
         return matcher.matches();
     }
 
-    //USUARIOS
-    public void RegistrarUsuario() throws IOException, NoSuchAlgorithmException, NoSuchPaddingException, NoSuchPaddingException {
+    // USUARIOS
+    public void RegistrarUsuario()
+            throws IOException, NoSuchAlgorithmException, NoSuchPaddingException, NoSuchPaddingException {
         SecretKey simetricKey = iControl.sendPublicKeyAndRecieveAES();
 
         String email = iControl.recibirString(simetricKey);
@@ -195,72 +196,17 @@ public class Cliente extends Thread {
             } else {
                 iControl.enviarInt(CREATE_USER_ERROR_INVALID_USERNAME, simetricKey);
             }
-        } else if (!UsuarioDao.getInstance().exists(user)) {
+        } else if (UsuarioDao.getInstance().exists(user)) {
+            System.out.println("NO");
+            iControl.enviarInt(NO, simetricKey);
+            iControl.enviarInt(CREATE_USER_ERROR_EXISTING_USER, simetricKey);
+        } else {
             iControl.enviarInt(OK, simetricKey);
 
-            String format = iControl.recibirString(simetricKey);
-
-            long length = iControl.recibirLong(simetricKey);
-
-            System.out.println(email + " " + contra + " " + name + " " + format);
-
-            File f = null;
-            boolean control = true;
-            int numFile = 1;
-            do {
-                StringBuilder strBuilder = new StringBuilder();
-                strBuilder.append(ROOT_IMAGE)
-                        .append("\\temp_")
-                        .append(name)
-                        .append("_")
-                        .append(numFile)
-                        .append(format);
-
-                f = new File(strBuilder.toString());
-                if (!f.exists()) {
-                    synchronized (Cliente.class) {
-                        if (!f.exists()) {
-                            System.out.println(f.getAbsolutePath());
-                            f.createNewFile();
-                            control = false;
-                        }
-                    }
-                }
-                if (control) {
-                    numFile++;
-                }
-            } while (control);
-
-            iControl.createFileFromInput(f, length);
-
-            File destiny;
-            StringBuilder stringBuilder = new StringBuilder();
-            stringBuilder.append(ROOT_IMAGE)
-                    .append("\\")
-                    .append(email)
-                    .append("-")
-                    .append(name)
-                    .append(format);
-            destiny = new File(stringBuilder.toString());
-            if (!destiny.exists()) {
-                destiny.createNewFile();
-            } else {
-                destiny = null;
-            }
-
-            try {
-                EncoderHandler.encodeFileSymmetricAlgorithm(f, destiny, simetricKey, true, false);
-            } catch (NullPointerException e) {
-                e.printStackTrace();
-            }
-
-            //System.out.println(email + " " + contra + " " + name);
+            System.out.println(email + " " + contra + " " + name);
             user.setContrasenya(contra);
             user.setNombreUsuario(name);
             user.setPartidasGanadas(0);
-            if (destiny != null) {
-                user.setImagenPerfil(destiny.getAbsolutePath());
-            }
 
             if (UsuarioDao.getInstance().saveUsuario(user)) {
                 System.out.println("OK");
@@ -268,10 +214,6 @@ public class Cliente extends Thread {
                 iControl.enviarInt(NO, simetricKey);
                 iControl.enviarInt(CREATE_USER_ERROR_INVALID_PARAMETERS, simetricKey);
             }
-        } else {
-            System.out.println("NO");
-            iControl.enviarInt(NO, simetricKey);
-            iControl.enviarInt(CREATE_USER_ERROR_EXISTING_USER, simetricKey);
         }
     }
 
@@ -289,39 +231,11 @@ public class Cliente extends Thread {
             iControl.enviarInt(OK, scrKey);
 
             iControl.enviarString(user.getNombreUsuario(), scrKey);
-
-            File f = new File(user.getImagenPerfil());
-
-            if (f.exists() && !f.isDirectory()) {
-                System.out.println("SI IMAGEN");
-                File temp = new File(user.getImagenPerfil() + ".temp");
-                if (!temp.exists()) {
-                    temp.createNewFile();
-                }
-                try {
-                    EncoderHandler.encodeFileSymmetricAlgorithm(f, temp, scrKey, false, true);
-                } catch (NullPointerException e) {
-                    e.printStackTrace();
-                }
-
-                byte[] lengthHex = Parser.fromHex(Parser.parseLongToHex(temp.length()));
-                String encodedLength = Parser.toHex(EncoderHandler.encodeSimetricEncode(lengthHex, scrKey, true));
-                System.out.println("Long encoded: " + encodedLength + "|| real length: " + temp.length());
-                iControl.SendFile(temp, scrKey);
-                temp.delete();
-            } else {
-                System.out.println("NO IMAGEN");
-                iControl.enviarLong(0, scrKey);
-            }
-
             iControl.enviarInt(user.getPartidasGanadas(), scrKey);
+
         } else {
             iControl.enviarInt(NO, scrKey);
-            if (user != null) {
-                iControl.enviarInt(USER_ERROR_INVALID_PASSWORD, scrKey);
-            } else {
-                iControl.enviarInt(USER_ERROR_NON_EXISTANT_USER, scrKey);
-            }
+            iControl.enviarInt(INVALID_CREDENTIALS_ERROR, scrKey);
         }
     }
 
@@ -334,49 +248,22 @@ public class Cliente extends Thread {
 
         Usuario user;
         UsuarioDao uDao = UsuarioDao.getInstance();
-        if ((user = uDao.getUsuario(email)) != null) {
-            if (password.equals(user.getContrasenya())) {
-
-                List<Cartanegra> listaCartaNegra = CartanegraDao.getInstance().getCartaFromOnlyUser(email);
-                List<Cartablanca> listaCartaBlanca = CartablancaDao.getInstance().getCartaFromOnlyUser(email);
-                List<Carta> listaCartas = CartaDao.getInstance().getCartaFromOnlyUser(email);
-                List<Baraja> listaBarajas = BarajaDao.getInstance().getBarajas(email);
-
-                for (Cartablanca c : listaCartaBlanca) {
-                    CartablancaDao.getInstance().deleteCarta(c);
-                }
-
-                for (Cartanegra c : listaCartaNegra) {
-                    CartanegraDao.getInstance().deleteCarta(c);
-                }
-
-                for (Carta c : listaCartas) {
-                    CartaDao.getInstance().deleteCarta(c);
-                }
-
-                for (Baraja b : listaBarajas) {
-                    BarajaDao.getInstance().deleteBaraja(b);
-                }
-
-                uDao.deleteUsuario(user);
-
-                File f = new File(user.getImagenPerfil());
-                if (f.exists()) {
-                    f.delete();
-                }
-
+        if ((user = uDao.exists(email, password)) != null) {
+            if (uDao.deleteUsuario(user)) {
                 iControl.enviarInt(OK, secretKey);
             } else {
+                // DATABASE_ERROR
                 iControl.enviarInt(NO, secretKey);
-                iControl.enviarInt(USER_ERROR_INVALID_PASSWORD, secretKey);
+                iControl.enviarInt(UNKOWN_ERROR, secretKey);
             }
         } else {
+            // USER NON EXISTANT OR INVALID PASSWORD
             iControl.enviarInt(NO, secretKey);
-            iControl.enviarInt(USER_ERROR_NON_EXISTANT_USER, secretKey);
+            iControl.enviarInt(INVALID_CREDENTIALS_ERROR, secretKey);
         }
     }
 
-    //BARAJAS
+    // BARAJAS
     public void SendBasicBarajasInfo() throws IOException, NoSuchAlgorithmException, NoSuchPaddingException {
         SecretKey secretKey = iControl.sendPublicKeyAndRecieveAES();
 
@@ -418,16 +305,9 @@ public class Cliente extends Thread {
             }
 
         } else {
-
             System.out.println("NO -- GET_MAZOS");
             iControl.enviarInt(NO, secretKey);
-            if (!UsuarioDao.getInstance().exists(user)) {
-                System.out.println("User dont exists -- GET_MAZOS");
-                iControl.enviarInt(USER_ERROR_NON_EXISTANT_USER, secretKey);
-            } else {
-                System.out.println("Bad password -- GET_MAZOS");
-                iControl.enviarInt(USER_ERROR_INVALID_PASSWORD, secretKey);
-            }
+            iControl.enviarInt(INVALID_CREDENTIALS_ERROR, secretKey);
         }
 
     }
@@ -496,8 +376,10 @@ public class Cliente extends Thread {
             if ((b = BarajaDao.getInstance().getBaraja(email, barajaname)) != null) {
                 BarajaId bId = b.getId();
 
-                List<Cartanegra> listaCartaNegra = CartanegraDao.getInstance().getCartas(user.getEmailUsuario(), barajaname);
-                List<Cartablanca> listaCartaBlanca = CartablancaDao.getInstance().getCartas(user.getEmailUsuario(), barajaname);
+                List<Cartanegra> listaCartaNegra = CartanegraDao.getInstance().getCartas(user.getEmailUsuario(),
+                        barajaname);
+                List<Cartablanca> listaCartaBlanca = CartablancaDao.getInstance().getCartas(user.getEmailUsuario(),
+                        barajaname);
                 List<Carta> listaCartas = CartaDao.getInstance().getCartas(user.getEmailUsuario(), barajaname);
 
                 listaCartaBlanca.forEach((c) -> {
@@ -575,11 +457,7 @@ public class Cliente extends Thread {
             }
         } else {
             iControl.enviarInt(NO, secretKey);
-            if (user != null) {
-                iControl.enviarInt(USER_ERROR_INVALID_PASSWORD, secretKey);
-            } else {
-                iControl.enviarInt(USER_ERROR_NON_EXISTANT_USER, secretKey);
-            }
+            iControl.enviarInt(INVALID_CREDENTIALS_ERROR, secretKey);
         }
     }
 
@@ -590,7 +468,8 @@ public class Cliente extends Thread {
         String usuarioPassword = iControl.recibirHex(secretKey);
         String nombreBaraja = iControl.recibirString(secretKey);
         Usuario user;
-        if ((user = UsuarioDao.getInstance().getUsuario(usuarioEmail)) != null && user.getContrasenya().equals(usuarioPassword)) {
+        if ((user = UsuarioDao.getInstance().getUsuario(usuarioEmail)) != null
+                && user.getContrasenya().equals(usuarioPassword)) {
             Baraja baraja;
             if ((baraja = BarajaDao.getInstance().getBaraja(usuarioEmail, nombreBaraja)) != null) {
                 CartablancaDao cBlancaDao = CartablancaDao.getInstance();
@@ -627,15 +506,11 @@ public class Cliente extends Thread {
             }
         } else {
             iControl.enviarInt(NO, secretKey);
-            if (user != null) {
-                iControl.enviarInt(USER_ERROR_INVALID_PASSWORD, secretKey);
-            } else {
-                iControl.enviarInt(USER_ERROR_NON_EXISTANT_USER, secretKey);
-            }
+            iControl.enviarInt(INVALID_CREDENTIALS_ERROR, secretKey);
         }
     }
 
-    //PARTIDAS
+    // PARTIDAS
     public void CreaPartida() throws IOException, NoSuchAlgorithmException, NoSuchPaddingException {
         SecretKey secretKey = iControl.sendPublicKeyAndRecieveAES();
 
@@ -680,17 +555,16 @@ public class Cliente extends Thread {
                     listaCartasBlancas.addAll(CartablancaDao.getInstance().getCartas(e_temp, b_temp));
                     listaCartasNegras.addAll(CartanegraDao.getInstance().getCartas(e_temp, b_temp));
                 }
-                Partida p = new Partida(namePartida, contrasenaPartida,
-                        maxPlayers, listaCartasBlancas,
+                Partida p = new Partida(namePartida, contrasenaPartida, maxPlayers, listaCartasBlancas,
                         listaCartasNegras, user.getEmailUsuario());
                 if (Partida.addPartida(p)) {
                     if (p.conectarAPartida(contrasenaPartida, iControl, user, secretKey) != null) {
                         iControl.enviarInt(OK, secretKey);
-                        try{
+                        try {
                             p.join();
-                        }catch(InterruptedException e){}
-                    }
-                    else{
+                        } catch (InterruptedException e) {
+                        }
+                    } else {
                         p.BorraPartida();
                         iControl.enviarInt(NO, secretKey);
                         iControl.enviarInt(PARTIDA_ERROR_NO_ENTRAR_DENIED, secretKey);
@@ -702,11 +576,7 @@ public class Cliente extends Thread {
             }
         } else {
             iControl.enviarInt(NO, secretKey);
-            if (user != null) {
-                iControl.enviarInt(USER_ERROR_INVALID_PASSWORD, secretKey);
-            } else {
-                iControl.enviarInt(USER_ERROR_NON_EXISTANT_USER, secretKey);
-            }
+            iControl.enviarInt(INVALID_CREDENTIALS_ERROR, secretKey);
         }
     }
 
@@ -735,7 +605,7 @@ public class Cliente extends Thread {
         String nombrePartida = iControl.recibirString(secretKey);
         String contraPartida = iControl.recibirString(secretKey);
         Usuario user = null;
-        if ((user = UsuarioDao.getInstance().getUsuario(email)) != null && user.getContrasenya().equals(contra)) {
+        if ((user = UsuarioDao.getInstance().exists(email, contra)) != null) {
             Partida p = Partida.BuscarPartida(nombrePartida);
             System.out.println(nombrePartida);
             if (p != null) {
@@ -756,12 +626,7 @@ public class Cliente extends Thread {
             }
         } else {
             iControl.enviarInt(NO, secretKey);
-            if (user != null) {
-                iControl.enviarInt(USER_ERROR_INVALID_PASSWORD, secretKey);
-            } else {
-                iControl.enviarInt(USER_ERROR_NON_EXISTANT_USER, secretKey);
-            }
+            iControl.enviarInt(INVALID_CREDENTIALS_ERROR, secretKey);
         }
     }
-
 }

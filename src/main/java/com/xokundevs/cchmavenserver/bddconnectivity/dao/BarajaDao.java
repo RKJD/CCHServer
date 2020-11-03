@@ -124,6 +124,23 @@ public class BarajaDao {
         return result;
     }
 
+    public boolean deleteListBaraja(List<Baraja> listBaraja) {
+        boolean result = false;
+        try {
+            Session session = HibernateUtil.getSessionFactory().openSession();
+            session.beginTransaction();
+            for (Baraja baraja : listBaraja) {
+                session.delete(baraja);
+            }
+            session.getTransaction().commit();
+            session.close();
+            result = true;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return result;
+    }
+
     public Baraja getBarajaWithCards(String correo, String nombreBaraja) {
         Baraja baraja = null;
         try {

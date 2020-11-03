@@ -1,8 +1,8 @@
 use cardshumanity;
-delete from cartablanca where emailUsuario = "default" and nombreBaraja = "Baraja default es";
+/*delete from cartablanca where emailUsuario = "default" and nombreBaraja = "Baraja default es";
 delete from cartanegra where emailUsuario = "default" and nombreBaraja = "Baraja default es";
 delete from carta where emailUsuario = "default" and nombreBaraja = "Baraja default es";
-delete from baraja where emailUsuario = "default" and nombreBaraja = "Baraja default es";
+delete from baraja where emailUsuario = "default" and nombreBaraja = "Baraja default es";*/
 
 insert into Baraja values('default', 'Baraja default es', 'es');
 insert into carta values(1, 'default', 'Baraja default es', "Barack Obama");

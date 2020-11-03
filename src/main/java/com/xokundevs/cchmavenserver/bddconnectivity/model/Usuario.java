@@ -86,15 +86,6 @@ public class Usuario  implements java.io.Serializable {
         this.partidasGanadas = partidasGanadas;
     }
 
-    
-    @Column(name="imagenPerfil", length=200)
-    public String getImagenPerfil() {
-        return this.imagenPerfil;
-    }
-    
-    public void setImagenPerfil(String imagenPerfil) {
-        this.imagenPerfil = imagenPerfil;
-    }
 
 @OneToMany(fetch=FetchType.LAZY, mappedBy="usuario")
     public Set<Baraja> getBarajas() {

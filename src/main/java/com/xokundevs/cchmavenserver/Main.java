@@ -18,7 +18,7 @@ public class Main {
     static {
         int puerto = Integer.MIN_VALUE;
         String asymmetric_algorithm = null, asymmetric_cipher_format = null, symmetric_algorithm = null,
-                symmetric_cipher_format = null, root_directory_image = null;
+                symmetric_cipher_format = null;
 
         try (InputStream is = new FileInputStream("Server.properties")) {
             Properties properties = new Properties();
@@ -31,7 +31,6 @@ public class Main {
             asymmetric_cipher_format = properties.getProperty("asymmetric_cipher_format");
             symmetric_algorithm = properties.getProperty("symmetric_algorithm");
             symmetric_cipher_format = properties.getProperty("symmetric_cipher_format");
-            root_directory_image = properties.getProperty("root_directory_image");
 
         } catch (FileNotFoundException ex) {
             throw new RuntimeException("Server.properties not found");
@@ -39,7 +38,7 @@ public class Main {
             throw new RuntimeException("Unable to read Server.properties");
         }
         if (puerto == Integer.MIN_VALUE || asymmetric_algorithm == null || asymmetric_cipher_format == null
-                || symmetric_algorithm == null || symmetric_cipher_format == null || root_directory_image == null) {
+                || symmetric_algorithm == null || symmetric_cipher_format == null) {
             throw new NullPointerException("null or non existant properties");
         } else {
             PUERTO = puerto;
@@ -47,7 +46,6 @@ public class Main {
             ASYMMETRIC_CIPHER_FORMAT = asymmetric_cipher_format;
             SYMMETRIC_ALGORITHM = symmetric_algorithm;
             SYMMETRIC_CIPHER_FORMAT = symmetric_cipher_format;
-            ROOT_IMAGE = root_directory_image;
         }
     }
 
@@ -59,9 +57,6 @@ public class Main {
     public static final String ASYMMETRIC_CIPHER_FORMAT;
     public static final String SYMMETRIC_ALGORITHM;
     public static final String SYMMETRIC_CIPHER_FORMAT;
-
-    // ROOT IMAGE DIRECTORY
-    private static final String ROOT_IMAGE;
 
     public static void main(String[] args) throws NoSuchAlgorithmException {
         HibernateUtil.getSessionFactory();

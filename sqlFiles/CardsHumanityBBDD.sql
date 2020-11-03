@@ -13,7 +13,6 @@ create table Usuario(
 	nombreUsuario varchar(15),
     contrasenya varchar(100),
     partidasGanadas int,
-    imagenPerfil varchar(200),
     primary key(emailUsuario)
 );
 
@@ -52,7 +51,7 @@ alter table Carta add constraint fk_ba_ca foreign key(emailUsuario, nombreBaraja
 alter table CartaNegra add constraint fk_ca_caN foreign key(idCarta, emailUsuario, nombreBaraja) references Carta(idCarta, emailUsuario, nombreBaraja);
 alter table CartaBlanca add constraint fk_ca_caB foreign key(idCarta, emailUsuario, nombreBaraja) references Carta(idCarta, emailUsuario, nombreBaraja);
 
-insert into Usuario values('default', 'default', 'default', 0, '');
-insert into Usuario values('123456@chokundevs.com', 'chokundeveloper', '7c4a8d09ca3762af61e59520943dc26494f8941b', 0, '');
+insert into Usuario values('default', 'default', 'default', 0);
+insert into Usuario values('123456@chokundevs.com', 'chokundeveloper', '7c4a8d09ca3762af61e59520943dc26494f8941b', 0);
 
 select * from Usuario;

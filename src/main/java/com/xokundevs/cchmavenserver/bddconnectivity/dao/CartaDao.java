@@ -123,4 +123,21 @@ public class CartaDao {
         }
         return result;
     }
+
+    public boolean deleteListCarta(List<Carta> listCarta) {
+        boolean result = false;
+        try {
+            Session session = HibernateUtil.getSessionFactory().openSession();
+            session.beginTransaction();
+            for (Carta carta : listCarta) {
+                session.delete(carta);
+            }
+            session.getTransaction().commit();
+            session.close();
+            result = true;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return result;
+    }
 }
