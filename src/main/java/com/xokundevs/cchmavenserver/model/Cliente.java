@@ -5,6 +5,25 @@
  */
 package com.xokundevs.cchmavenserver.model;
 
+import java.io.DataOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.Socket;
+import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Properties;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import javax.crypto.NoSuchPaddingException;
+import javax.crypto.SecretKey;
+
 import com.xokundevs.cchmavenserver.Main;
 import com.xokundevs.cchmavenserver.bddconnectivity.dao.BarajaDao;
 import com.xokundevs.cchmavenserver.bddconnectivity.dao.CartaDao;
@@ -18,32 +37,6 @@ import com.xokundevs.cchmavenserver.bddconnectivity.model.CartaId;
 import com.xokundevs.cchmavenserver.bddconnectivity.model.Cartablanca;
 import com.xokundevs.cchmavenserver.bddconnectivity.model.Cartanegra;
 import com.xokundevs.cchmavenserver.bddconnectivity.model.Usuario;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.net.Socket;
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Properties;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import javax.crypto.BadPaddingException;
-import javax.crypto.Cipher;
-import javax.crypto.IllegalBlockSizeException;
-import javax.crypto.NoSuchPaddingException;
-import javax.crypto.SecretKey;
-import javax.crypto.spec.SecretKeySpec;
 
 /**
  *

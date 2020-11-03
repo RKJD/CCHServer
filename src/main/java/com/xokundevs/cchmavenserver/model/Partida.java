@@ -372,7 +372,7 @@ class Partida extends Thread {
                                     iC.enviarInt(pGanador.puntos, secretKey);
                                 }
                             } catch (IOException ex) {
-                                borrarJugador(tempCount);
+                                borrarJugador(jugadores.get(tempCount));
                             }
                         }
                     });
@@ -620,7 +620,7 @@ class Partida extends Thread {
         }
     }
 
-    private void borrarJugador(Player player) {
+    private final void borrarJugador(Player player) {
         synchronized (this) {
             jugadores.remove(player);
             currentPlayers--;
