@@ -88,7 +88,7 @@ public class Cliente extends Thread {
     private static final int CREATE_USER_ERROR_INVALID_EMAIL = -2;
     private static final int CREATE_USER_ERROR_INVALID_PARAMETERS = -3;
     private static final int INVALID_CREDENTIALS_ERROR = -4;
-    private static final int USER_ERROR_NON_EXISTANT_USER = -4;
+    private static final int USER_ERROR_NON_EXISTANT_USER = -5;
     private static final int BARAJA_ERROR_NON_EXISTANT_BARAJA = -6;
     private static final int CREATE_USER_ERROR_LONG_EMAIL = -7;
     private static final int CREATE_USER_ERROR_LONG_USERNAME = -8;

@@ -243,7 +243,7 @@ class Partida extends Thread {
         for (Player p : jugadores) {
             if (p.puntos >= maxPoints) {
                 ganador = p;
-                break;//SAL DEL FOR BREAK
+                break;//SAL DEL FOR
             }
         }
         final Player realGanador = ganador;
