@@ -1,9 +1,6 @@
 package com.xokundevs.cchmavenserver.bddconnectivity.model;
 // Generated 26-may-2019 19:42:04 by Hibernate Tools 4.3.1
 
-
-import com.xokundevs.cchmavenserver.bddconnectivity.model.Carta;
-import com.xokundevs.cchmavenserver.bddconnectivity.model.Usuario;
 import java.util.HashSet;
 import java.util.Set;
 import javax.persistence.AttributeOverride;
@@ -30,7 +27,8 @@ public class Baraja  implements java.io.Serializable {
      private BarajaId id;
      private Usuario usuario;
      private String idioma;
-     private Set<Carta> cartas = new HashSet<Carta>(0);
+     private Set<Cartanegra> cartasnegras = new HashSet<Cartanegra>(0);
+     private Set<Cartablanca> cartasblancas = new HashSet<Cartablanca>(0);
 
     public Baraja() {
     }
@@ -40,11 +38,12 @@ public class Baraja  implements java.io.Serializable {
         this.id = id;
         this.usuario = usuario;
     }
-    public Baraja(BarajaId id, Usuario usuario, String idioma, Set<Carta> cartas) {
+    public Baraja(BarajaId id, Usuario usuario, String idioma, Set<Cartanegra> cartasnegras, Set<Cartablanca> cartablancas){
        this.id = id;
        this.usuario = usuario;
        this.idioma = idioma;
-       this.cartas = cartas;
+       this.cartasnegras = cartasnegras;
+       this.cartasblancas = cartablancas;
     }
    
      @EmbeddedId
@@ -81,18 +80,23 @@ public class Baraja  implements java.io.Serializable {
         this.idioma = idioma;
     }
 
-@OneToMany(fetch=FetchType.LAZY, mappedBy="baraja")
-    public Set<Carta> getCartas() {
-        return this.cartas;
+    @OneToMany(fetch=FetchType.LAZY, mappedBy="baraja")
+    public Set<Cartanegra> getCartasnegras() {
+        return this.cartasnegras;
     }
     
-    public void setCartas(Set<Carta> cartas) {
-        this.cartas = cartas;
+    public void setCartasnegras(Set<Cartanegra> cartasnegras) {
+        this.cartasnegras = cartasnegras;
     }
 
-
-
-
+    @OneToMany(fetch=FetchType.LAZY, mappedBy="baraja")
+    public Set<Cartablanca> getCartasblancas() {
+        return this.cartasblancas;
+    }
+    
+    public void setCartasblancas(Set<Cartablanca> cartasblancas) {
+        this.cartasblancas = cartasblancas;
+    }
 }
 
 

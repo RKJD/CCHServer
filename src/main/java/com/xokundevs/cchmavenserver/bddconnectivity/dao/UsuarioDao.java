@@ -6,7 +6,6 @@
 package com.xokundevs.cchmavenserver.bddconnectivity.dao;
 
 import com.xokundevs.cchmavenserver.bddconnectivity.model.Baraja;
-import com.xokundevs.cchmavenserver.bddconnectivity.model.Carta;
 import com.xokundevs.cchmavenserver.bddconnectivity.model.Cartablanca;
 import com.xokundevs.cchmavenserver.bddconnectivity.model.Cartanegra;
 import com.xokundevs.cchmavenserver.bddconnectivity.model.Usuario;
@@ -98,7 +97,6 @@ public class UsuarioDao {
         boolean result = false;
         try {
             Session session = HibernateUtil.getSessionFactory().openSession();
-            List<Carta> listaCartas = session.createQuery("from Carta c where c.id.emailUsuario = :correo").setString("correo", user.getEmailUsuario()).list();
             List<Cartanegra> listaCartanegra = session.createQuery("from Cartanegra c where c.id.emailUsuario = :correo").setString("correo", user.getEmailUsuario()).list();
             List<Cartablanca> listaCartablanca = session.createQuery("from Cartablanca c where c.id.emailUsuario = :correo").setString("correo", user.getEmailUsuario()).list();
             List<Baraja> listaBaraja = session.createQuery("from Baraja baraja where baraja.id.emailUsuario = :correo").setString("correo", user.getEmailUsuario()).list();
@@ -109,9 +107,6 @@ public class UsuarioDao {
             }
             for (Cartanegra cartan : listaCartanegra) {
                 session.delete(cartan);
-            }
-            for (Carta carta : listaCartas) {
-                session.delete(carta);
             }
             for (Baraja baraja : listaBaraja) {
                 session.delete(baraja);

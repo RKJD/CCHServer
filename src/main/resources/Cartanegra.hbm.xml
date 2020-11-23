@@ -14,7 +14,13 @@
         <column length="30" name="nombreBaraja"/>
       </key-property>
     </composite-id>
-    <one-to-one class="com.xokundevs.cchmavenserver.bddconnectivity.model.Carta" constrained="true" name="carta"/>
+    <many-to-one class="com.xokundevs.cchmavenserver.bddconnectivity.model.Baraja" fetch="select" insert="false" name="baraja" update="false">
+      <column length="50" name="emailUsuario" not-null="true"/>
+      <column length="30" name="nombreBaraja" not-null="true"/>
+    </many-to-one>
+    <property name="texto" type="string">
+      <column length="200" name="texto"/>
+    </property>
     <property name="numeroEspacios" type="java.lang.Integer">
       <column name="numeroEspacios"/>
     </property>

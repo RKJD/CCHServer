@@ -36,9 +36,6 @@ public class CartablancaDao {
             q.setString("correo", correo);
             q.setString("nombreBaraja", nombreBaraja);
             list = q.list();
-            for(Cartablanca c : list){
-                c.getCarta().getTexto();
-            }
             s.close();
         } catch (Exception e) {
             e.printStackTrace();

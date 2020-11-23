@@ -32,6 +32,7 @@ public class InternetControl {
     private Socket sk;
     private DataInputStream dis;
     private DataOutputStream dos;
+    private SecretKey secretKey;
 
     public InternetControl(Socket sk) throws IOException {
 
@@ -40,7 +41,7 @@ public class InternetControl {
         dos = new DataOutputStream(sk.getOutputStream());
     }
 
-    public SecretKey sendPublicKeyAndRecieveAES() throws IOException, NoSuchAlgorithmException, NoSuchPaddingException {
+    public void sendPublicKeyAndRecieveAES() throws IOException, NoSuchAlgorithmException, NoSuchPaddingException {
         byte[] publicKey = EncoderHandler.getPublicKey().getEncoded();
 
         dos.writeUTF(Parser.toHex(publicKey));
@@ -48,11 +49,10 @@ public class InternetControl {
         String codeRecieved = dis.readUTF();
         byte[] claveCodificacion = Parser.fromHex(codeRecieved);
 
-        SecretKey secretKey = EncoderHandler.encryptSecretKey(claveCodificacion, false);
-        return secretKey;
+        secretKey = EncoderHandler.encryptSecretKey(claveCodificacion, false);
     }
 
-    public void enviarInt(int num, SecretKey secretKey) throws IOException {
+    public void enviarInt(int num) throws IOException {
         dos.writeUTF(
                 Parser.toHex(
                         EncoderHandler.encodeSimetricEncode(
@@ -64,7 +64,7 @@ public class InternetControl {
         );
     }
 
-    public void enviarLong(long num, SecretKey secretKey) throws IOException {
+    public void enviarLong(long num) throws IOException {
         dos.writeUTF(
                 Parser.toHex(
                         EncoderHandler.encodeSimetricEncode(
@@ -76,7 +76,7 @@ public class InternetControl {
         );
     }
 
-    public void enviarHex(String hexString, SecretKey secretKey) throws IOException {
+    public void enviarHex(String hexString) throws IOException {
         dos.writeUTF(
                 Parser.toHex(
                         EncoderHandler.encodeSimetricEncode(
@@ -88,7 +88,7 @@ public class InternetControl {
         );
     }
 
-    public void enviarString(String frase, SecretKey secretKey) throws IOException {
+    public void enviarString(String frase) throws IOException {
         dos.writeUTF(
                 Parser.toHex(
                         EncoderHandler.encodeSimetricEncode(
@@ -100,7 +100,7 @@ public class InternetControl {
         );
     }
     
-    public int recibirInt(SecretKey secretKey) throws IOException {
+    public int recibirInt() throws IOException {
         return Parser.parseHexToInt(
                 Parser.toHex(
                         EncoderHandler.encodeSimetricEncode(
@@ -112,7 +112,7 @@ public class InternetControl {
         );
     }
 
-    public String recibirHex(SecretKey secretKey) throws IOException {
+    public String recibirHex() throws IOException {
         return Parser.toHex(
                 EncoderHandler.encodeSimetricEncode(
                         Parser.fromHex(dis.readUTF()),
@@ -122,7 +122,7 @@ public class InternetControl {
         );
     }
 
-    public String recibirString(SecretKey secretKey) throws IOException {
+    public String recibirString() throws IOException {
         return new String(
                 EncoderHandler.encodeSimetricEncode(
                         Parser.fromHex(dis.readUTF()),
@@ -133,7 +133,7 @@ public class InternetControl {
         );
     }
 
-    public long recibirLong(SecretKey secretKey) throws IOException {
+    public long recibirLong() throws IOException {
         return Parser.parseHexToLong(
                 Parser.toHex(
                         EncoderHandler.encodeSimetricEncode(
@@ -184,7 +184,7 @@ public class InternetControl {
         try {
             disFile = new DataInputStream(new FileInputStream(f));
 
-            enviarLong(f.length(), secretKey);
+            enviarLong(f.length());
 
             long fileLength = f.length();
             long actual = 0;

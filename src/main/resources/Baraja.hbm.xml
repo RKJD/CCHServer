@@ -17,12 +17,19 @@
     <property name="idioma" type="string">
       <column length="10" name="idioma"/>
     </property>
-    <set fetch="select" inverse="true" lazy="true" name="cartas" table="carta">
+    <set fetch="select" inverse="true" lazy="true" name="cartasnegras" table="cartanegra">
       <key>
         <column length="50" name="emailUsuario" not-null="true"/>
         <column length="30" name="nombreBaraja" not-null="true"/>
       </key>
-      <one-to-many class="com.xokundevs.cchmavenserver.bddconnectivity.model.Carta"/>
+      <one-to-many class="com.xokundevs.cchmavenserver.bddconnectivity.model.Cartanegra"/>
+    </set>
+    <set fetch="select" inverse="true" lazy="true" name="cartasblancas" table="cartablanca">
+      <key>
+        <column length="50" name="emailUsuario" not-null="true"/>
+        <column length="30" name="nombreBaraja" not-null="true"/>
+      </key>
+      <one-to-many class="com.xokundevs.cchmavenserver.bddconnectivity.model.Cartablanca"/>
     </set>
   </class>
 </hibernate-mapping>

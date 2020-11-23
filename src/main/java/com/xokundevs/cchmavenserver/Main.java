@@ -10,6 +10,8 @@ import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
 import java.util.Properties;
+import java.util.Scanner;
+
 import com.xokundevs.cchmavenserver.bddconnectivity.util.HibernateUtil;
 import com.xokundevs.cchmavenserver.model.Cliente;
 
@@ -60,36 +62,43 @@ public class Main {
 
     public static void main(String[] args) throws NoSuchAlgorithmException {
         HibernateUtil.getSessionFactory();
+
         KeyPairGenerator kpg = KeyPairGenerator.getInstance(ASYMMETRIC_ALGORITHM);
         pairKeys = kpg.genKeyPair();
-        ServerSocket ssk = null;
+        Scanner sc = new Scanner(System.in);
 
-        try {
-            ssk = new ServerSocket(PUERTO);
+
+        try(ServerSocket ssk = new ServerSocket(PUERTO)) {
+            
             System.out.println("Escuchando");
+            new Thread(new Runnable(){
+                @Override
+                public void run() {
+                    Main.run(ssk);
+                }
+            }).start();
+
+            while(!sc.nextLine().equals("close"));
 
         } catch (IOException exception) {
             System.out.println(exception);
         }
 
-        try {
+        sc.close();
+    }
 
-            if (ssk != null) {
-                while (true) {
+    private static void run(ServerSocket ssk) {
+        if (ssk != null) {
+            while (!ssk.isClosed()) {
+                try {
                     Socket sk = ssk.accept();
                     Cliente ser = new Cliente(sk);
                     ser.start();
                     System.out.println("Connexión entrante");
+                } catch (IOException ex) {
+                    ex.printStackTrace();
                 }
             }
-        } catch (IOException ex) {
         }
-
-        try {
-            if (ssk != null)
-                ssk.close();
-        } catch (IOException ex) {
-        }
-
     }
 }

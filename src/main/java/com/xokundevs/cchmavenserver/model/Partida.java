@@ -5,17 +5,13 @@
  */
 package com.xokundevs.cchmavenserver.model;
 
-import com.xokundevs.cchmavenserver.bddconnectivity.model.Baraja;
-import com.xokundevs.cchmavenserver.bddconnectivity.model.Carta;
 import com.xokundevs.cchmavenserver.bddconnectivity.model.Cartablanca;
 import com.xokundevs.cchmavenserver.bddconnectivity.model.Cartanegra;
 import com.xokundevs.cchmavenserver.bddconnectivity.model.Usuario;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.crypto.SecretKey;
 
 /**
  *
@@ -101,8 +97,7 @@ class Partida extends Thread {
     private Player currentTzar = null;
     private final ArrayList<Player> jugadores;
 
-    public Partida(String nombrePartida, String contrasena, int maxPlayers,
-            ArrayList<Cartablanca> listaCartasBlancas,
+    public Partida(String nombrePartida, String contrasena, int maxPlayers, ArrayList<Cartablanca> listaCartasBlancas,
             ArrayList<Cartanegra> listaCartasNegras, String emailString) {
         this.canEnter = false;
         this.maxPlayers = maxPlayers;
@@ -131,14 +126,14 @@ class Partida extends Thread {
             int result;
             do {
                 try {
-                    result = principal.recibirInt(jugadores.get(0).secretKey);
+                    result = principal.recibirInt();
                     System.out.println("Resultado: " + result);
                 } catch (IOException e) {
                     result = CERRAR_PARTIDA;
                 }
                 synchronized (principal) {
                     if (currentPlayers < MINIMUM_PLAYERS && result == EMPEZAR_PARTIDA) {
-                        principal.enviarInt(ERROR_NO_SUFFICIENT_PLAYERS, jugadores.get(0).secretKey);
+                        principal.enviarInt(ERROR_NO_SUFFICIENT_PLAYERS);
                         result = ERROR_NO_SUFFICIENT_PLAYERS;
                     }
                 }
@@ -199,8 +194,7 @@ class Partida extends Thread {
                         }
                         break;
                 }
-            }
-            else{
+            } else {
                 ESTADO = CERRAR_PARTIDA;
             }
         }
@@ -213,12 +207,10 @@ class Partida extends Thread {
         for (int i = 0; i < currentPlayers; i++) {
             final Player jugador = jugadores.get(i);
             final InternetControl iC = jugadores.get(i).iControl;
-            final SecretKey secretKey = jugadores.get(i).secretKey;
-            final int tempCount = i;
             threads[i] = new Thread(() -> {
                 try {
                     synchronized (iC) {
-                        iC.enviarInt(CERRAR_PARTIDA, secretKey);
+                        iC.enviarInt(CERRAR_PARTIDA);
                     }
                 } catch (IOException ex) {
                     borrarJugador(jugador);
@@ -243,7 +235,7 @@ class Partida extends Thread {
         for (Player p : jugadores) {
             if (p.puntos >= maxPoints) {
                 ganador = p;
-                break;//SAL DEL FOR
+                break;// SAL DEL FOR
             }
         }
         final Player realGanador = ganador;
@@ -253,12 +245,10 @@ class Partida extends Thread {
             for (int i = 0; i < threads.length; i++) {
                 final Player jugador = jugadores.get(i);
                 final InternetControl iC = jugadores.get(i).iControl;
-                final SecretKey secretKey = jugadores.get(i).secretKey;
-                final int countTemp = i;
                 threads[i] = new Thread(() -> {
                     try {
-                        iC.enviarInt(YA_HAY_GANADOR, secretKey);
-                        iC.enviarString(realGanador.user.getEmailUsuario(), secretKey);
+                        iC.enviarInt(YA_HAY_GANADOR);
+                        iC.enviarString(realGanador.user.getEmailUsuario());
                     } catch (IOException e) {
                         borrarJugador(jugador);
                     }
@@ -307,21 +297,19 @@ class Partida extends Thread {
 
             for (int i = 0; i < threads.length; i++) {
                 final InternetControl iC = jugadores.get(i).iControl;
-                final SecretKey secretKey = jugadores.get(i).secretKey;
-                final int tempCount = i;
                 final Player jugador = jugadores.get(i);
                 threads[i] = new Thread(new Runnable() {
                     @Override
                     public void run() {
                         try {
                             synchronized (iC) {
-                                iC.enviarInt(TZAR_ESCOGE_GANADOR, secretKey);
-                                iC.enviarInt(OrderPlayer.length, secretKey);
+                                iC.enviarInt(TZAR_ESCOGE_GANADOR);
+                                iC.enviarInt(OrderPlayer.length);
                                 for (int i = 0; i < OrderPlayer.length; i++) {
                                     Cartablanca[] cartasJug = OrderPlayer[i].cartaEscogida;
-                                    iC.enviarInt(cartasJug.length, secretKey);
+                                    iC.enviarInt(cartasJug.length);
                                     for (int j = 0; j < cartasJug.length; j++) {
-                                        iC.enviarString(cartasJug[j].getCarta().getTexto(), secretKey);
+                                        iC.enviarString(cartasJug[j].getTexto());
                                     }
                                 }
                             }
@@ -347,7 +335,7 @@ class Partida extends Thread {
             int ganador = Integer.MIN_VALUE;
             try {
                 synchronized (currentTzar.iControl) {
-                    ganador = currentTzar.iControl.recibirInt(currentTzar.secretKey);
+                    ganador = currentTzar.iControl.recibirInt();
                 }
             } catch (IOException ex) {
                 borrarJugador(currentTzar);
@@ -360,16 +348,15 @@ class Partida extends Thread {
                 threads = new Thread[currentPlayers];
                 for (int i = 0; i < threads.length; i++) {
                     final InternetControl iC = jugadores.get(i).iControl;
-                    final SecretKey secretKey = jugadores.get(i).secretKey;
                     final int tempCount = i;
                     threads[i] = new Thread(new Runnable() {
                         @Override
                         public void run() {
                             try {
                                 synchronized (iC) {
-                                    iC.enviarInt(TZAR_YA_HA_ESCOGIDO_GANADOR, secretKey);
-                                    iC.enviarString(pGanador.user.getEmailUsuario(), secretKey);
-                                    iC.enviarInt(pGanador.puntos, secretKey);
+                                    iC.enviarInt(TZAR_YA_HA_ESCOGIDO_GANADOR);
+                                    iC.enviarString(pGanador.user.getEmailUsuario());
+                                    iC.enviarInt(pGanador.puntos);
                                 }
                             } catch (IOException ex) {
                                 borrarJugador(jugadores.get(tempCount));
@@ -406,17 +393,16 @@ class Partida extends Thread {
 
         for (int i = 0; i < currentPlayers; i++) {
             final InternetControl iC = jugadores.get(i).iControl;
-            final SecretKey secretKey = jugadores.get(i).secretKey;
             final Player jugador = jugadores.get(i);
             threads[i] = new Thread(() -> {
                 try {
                     synchronized (iC) {
-                        iC.enviarInt(ESCOGER_CARTAS, secretKey);
+                        iC.enviarInt(ESCOGER_CARTAS);
                         if (!jugador.equals(currentTzar)) {
-                            int cantidad = iC.recibirInt(secretKey);
+                            int cantidad = iC.recibirInt();
                             jugador.cartaEscogida = new Cartablanca[cantidad];
                             for (int j = 0; j < cantidad; j++) {
-                                jugador.cartaEscogida[j] = jugador.cartasEnMano.get(iC.recibirInt(secretKey));
+                                jugador.cartaEscogida[j] = jugador.cartasEnMano.get(iC.recibirInt());
                             }
                             for (Cartablanca c : jugador.cartaEscogida) {
                                 jugador.cartasEnMano.remove(c);
@@ -454,15 +440,12 @@ class Partida extends Thread {
         for (int i = 0; i < currentPlayers; i++) {
             final Player jugador = jugadores.get(i);
             final InternetControl iC = jugadores.get(i).iControl;
-            final SecretKey secretKey = jugadores.get(i).secretKey;
-            final int tempCount = i;
             threads[i] = new Thread(() -> {
                 try {
                     synchronized (iC) {
-                        iC.enviarInt(MUESTRA_CARTA_NEGRA, secretKey);
-                        Carta c = lastBlackCard.getCarta();
-                        iC.enviarString(c.getTexto(), secretKey);
-                        iC.enviarInt(lastBlackCard.getNumeroEspacios(), secretKey);
+                        iC.enviarInt(MUESTRA_CARTA_NEGRA);
+                        iC.enviarString(lastBlackCard.getTexto());
+                        iC.enviarInt(lastBlackCard.getNumeroEspacios());
                     }
                 } catch (IOException ex) {
                     borrarJugador(jugador);
@@ -500,16 +483,15 @@ class Partida extends Thread {
         for (int i = 0; i < currentPlayers; i++) {
             final Player jugador = jugadores.get(i);
             final InternetControl iC = jugadores.get(i).iControl;
-            final SecretKey secretKey = jugadores.get(i).secretKey;
             final int tempCount = i;
             threads[i] = new Thread(() -> {
                 try {
                     synchronized (iC) {
-                        iC.enviarInt(REPARTIR_CARTAS, secretKey);
-                        iC.enviarInt(10, secretKey);
+                        iC.enviarInt(REPARTIR_CARTAS);
+                        iC.enviarInt(10);
                         for (int j = 0; j < 10; j++) {
-                            Carta c = jugadores.get(tempCount).cartasEnMano.get(j).getCarta();
-                            iC.enviarString(c.getTexto(), secretKey);
+                            Cartablanca c = jugadores.get(tempCount).cartasEnMano.get(j);
+                            iC.enviarString(c.getTexto());
                         }
                     }
                 } catch (IOException ex) {
@@ -538,14 +520,12 @@ class Partida extends Thread {
 
             final Player jugador = jugadores.get(i);
             final InternetControl iC = jugadores.get(i).iControl;
-            final SecretKey ScKey = jugadores.get(i).secretKey;
-            final int tempCount = i;
 
             if (iC != null) {
                 t[i] = new Thread(() -> {
                     try {
                         synchronized (iC) {
-                            iC.enviarInt(EMPEZAR_PARTIDA, ScKey);
+                            iC.enviarInt(EMPEZAR_PARTIDA);
                         }
                     } catch (IOException ex) {
                         borrarJugador(jugador);
@@ -595,13 +575,11 @@ class Partida extends Thread {
         for (int i = 0; i < currentPlayers; i++) {
             final Player jugador = jugadores.get(i);
             final InternetControl iC = jugadores.get(i).iControl;
-            final SecretKey secretKey = jugadores.get(i).secretKey;
-            final int tempCount = i;
             threads[i] = new Thread(() -> {
                 try {
                     synchronized (iC) {
-                        iC.enviarInt(ESCOGER_TZAR, secretKey);
-                        iC.enviarString(currentTzar.user.getEmailUsuario(), secretKey);
+                        iC.enviarInt(ESCOGER_TZAR);
+                        iC.enviarString(currentTzar.user.getEmailUsuario());
                     }
                 } catch (IOException ex) {
                     borrarJugador(jugador);
@@ -627,13 +605,11 @@ class Partida extends Thread {
             if (!checkUsersIfClose()) {
                 for (int z = 0; z < currentPlayers; z++) {
                     final InternetControl iC = jugadores.get(z).iControl;
-                    final SecretKey secretKey = jugadores.get(z).secretKey;
-                    final int temp = z;
                     new Thread(() -> {
                         synchronized (iC) {
                             try {
-                                iC.enviarInt(ERROR_PLAYER_DISCONNECTED, secretKey);
-                                iC.enviarString(player.user.getEmailUsuario(), secretKey);
+                                iC.enviarInt(ERROR_PLAYER_DISCONNECTED);
+                                iC.enviarString(player.user.getEmailUsuario());
                             } catch (IOException ex) {
                             }
                         }
@@ -652,15 +628,16 @@ class Partida extends Thread {
         }
     }
 
-    public Partida conectarAPartida(String password, InternetControl iControl, Usuario user, SecretKey secretKey) throws IOException {
+    public Partida conectarAPartida(String password, InternetControl iControl, Usuario user)
+            throws IOException {
         synchronized (this) {
             if (password.equals(this.contrasena)) {
                 System.out.println("OKPASSWORD");
                 if (currentPlayers == 0) {
                     System.out.println("FIRST_USER");
                     if (user.getEmailUsuario().equals(emailCreator)) {
-                        iControl.enviarInt(Cliente.OK, secretKey);
-                        jugadores.add(new Player(user, iControl, secretKey));
+                        iControl.enviarInt(Cliente.OK);
+                        jugadores.add(new Player(user, iControl));
                         currentPlayers++;
                         canEnter = true;
                         this.start();
@@ -670,18 +647,18 @@ class Partida extends Thread {
                         return null;
                     }
                 } else if (currentPlayers < maxPlayers && canEnter) {
-                    jugadores.add(new Player(user, iControl, secretKey));
+                    jugadores.add(new Player(user, iControl));
                     synchronized (jugadores) {
                         for (int i = 0; i < currentPlayers; i++) {
-                            jugadores.get(i).iControl.enviarInt(NEW_PLAYER, jugadores.get(i).secretKey);
-                            jugadores.get(i).iControl.enviarString(user.getEmailUsuario(), jugadores.get(i).secretKey);
-                            jugadores.get(i).iControl.enviarString(user.getNombreUsuario(), jugadores.get(i).secretKey);
-                            iControl.enviarInt(NEW_PLAYER, secretKey);
-                            iControl.enviarString(jugadores.get(i).user.getEmailUsuario(), secretKey);
-                            iControl.enviarString(jugadores.get(i).user.getNombreUsuario(), secretKey);
+                            jugadores.get(i).iControl.enviarInt(NEW_PLAYER);
+                            jugadores.get(i).iControl.enviarString(user.getEmailUsuario());
+                            jugadores.get(i).iControl.enviarString(user.getNombreUsuario());
+                            iControl.enviarInt(NEW_PLAYER);
+                            iControl.enviarString(jugadores.get(i).user.getEmailUsuario());
+                            iControl.enviarString(jugadores.get(i).user.getNombreUsuario());
                         }
                         currentPlayers++;
-                        iControl.enviarInt(Cliente.OK, secretKey);
+                        iControl.enviarInt(Cliente.OK);
                     }
                     return this;
                 } else {
@@ -721,16 +698,14 @@ class Partida extends Thread {
 
         ArrayList<Cartablanca> cartasEnMano;
         Cartablanca[] cartaEscogida = null;
-        SecretKey secretKey;
         InternetControl iControl;
         int puntos = 0;
         Usuario user;
         boolean wasTzar = false;
 
-        private Player(Usuario user, InternetControl iControl, SecretKey secretKey) {
+        private Player(Usuario user, InternetControl iControl) {
             this.user = user;
             this.iControl = iControl;
-            this.secretKey = secretKey;
             cartasEnMano = new ArrayList<>();
         }
     }

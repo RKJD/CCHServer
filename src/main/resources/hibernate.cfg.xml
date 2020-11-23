@@ -48,7 +48,7 @@ Contributor(s):
     <mapping resource="Cartablanca.hbm.xml"/>
     <mapping resource="Usuario.hbm.xml"/>
     <mapping resource="Cartanegra.hbm.xml"/>
-    <mapping resource="Carta.hbm.xml"/>
+    <!--mapping resource="Carta.hbm.xml"-->
     <mapping resource="Baraja.hbm.xml"/>
   </session-factory>
 </hibernate-configuration>

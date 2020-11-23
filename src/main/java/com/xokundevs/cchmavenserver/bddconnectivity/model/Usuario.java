@@ -25,7 +25,6 @@ public class Usuario  implements java.io.Serializable {
      private String nombreUsuario;
      private String contrasenya;
      private Integer partidasGanadas;
-     private String imagenPerfil;
      private Set<Baraja> barajas = new HashSet<Baraja>(0);
 
     public Usuario() {
@@ -35,12 +34,11 @@ public class Usuario  implements java.io.Serializable {
     public Usuario(String emailUsuario) {
         this.emailUsuario = emailUsuario;
     }
-    public Usuario(String emailUsuario, String nombreUsuario, String contrasenya, Integer partidasGanadas, String imagenPerfil, Set<Baraja> barajas) {
+    public Usuario(String emailUsuario, String nombreUsuario, String contrasenya, Integer partidasGanadas, Set<Baraja> barajas) {
        this.emailUsuario = emailUsuario;
        this.nombreUsuario = nombreUsuario;
        this.contrasenya = contrasenya;
        this.partidasGanadas = partidasGanadas;
-       this.imagenPerfil = imagenPerfil;
        this.barajas = barajas;
     }
    
@@ -95,10 +93,6 @@ public class Usuario  implements java.io.Serializable {
     public void setBarajas(Set<Baraja> barajas) {
         this.barajas = barajas;
     }
-
-
-
-
 }
 
 
